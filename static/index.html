@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novel EPUB Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & tokens ───────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:      #0f1117;
+    --ink-mid:  #1c2030;
+    --ink-soft: #2a3045;
+    --border:   #363d52;
+    --muted:    #6b7494;
+    --text:     #c9c0b0;
+    --text-dim: #7a7e8e;
+    --paper:    #e8e0d4;
+    --sage:     #7a9e87;
+    --sage-dim: #4e6b58;
+    --warn:     #c97a5a;
+    --radius:   6px;
+    --font-ui:  'Inter', system-ui, sans-serif;
+    --font-dis: 'DM Serif Display', Georgia, serif;
+  }
+
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── Header ───────────────────────────────────────────────── */
+  .header {
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+  .header h1 {
+    font-family: var(--font-dis);
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--paper);
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .header p {
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 300;
+  }
+
+  /* ── Section card ─────────────────────────────────────────── */
+  .card {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: var(--font-dis);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--paper);
+    margin-bottom: 18px;
+  }
+
+  /* ── Form controls ────────────────────────────────────────── */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 5px;
+    letter-spacing: 0.3px;
+  }
+  .field input,
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    resize: vertical;
+  }
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus {
+    border-color: var(--sage);
+  }
+  .field input::placeholder,
+  .field textarea::placeholder {
+    color: var(--text-dim);
+  }
+  .field textarea { min-height: 80px; }
+  .field.half { display: inline-block; width: calc(50% - 6px); }
+  .field.half + .field.half { margin-left: 12px; }
+
+  /* ── Sections builder ─────────────────────────────────────── */
+  .sections-area { display: flex; flex-direction: column; gap: 12px; }
+
+  .section-block {
+    background: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-header:hover { background: #313a52; }
+  .section-label {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--paper);
+  }
+  .section-count {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .section-toggle {
+    color: var(--muted);
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+  .section-toggle.open { transform: rotate(180deg); }
+  .section-body { padding: 14px; display: none; }
+  .section-body.open { display: block; }
+
+  .section-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* Chapter list within a section */
+  .chapters-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .chapter-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .chapter-row input {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 6px 8px;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+    transition: border-color 0.15s;
+  }
+  .chapter-row input:focus { border-color: var(--sage); }
+  .chapter-row input::placeholder { color: var(--text-dim); }
+  .chapter-row input.url { flex: 2; }
+  .btn-icon {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .btn-icon:hover { color: var(--warn); background: rgba(201,122,90,.1); }
+
+  /* Bulk-paste area */
+  .bulk-area { margin-top: 10px; }
+  .bulk-toggle {
+    font-size: 11px;
+    color: var(--sage);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 6px;
+    font-family: var(--font-ui);
+  }
+  .bulk-toggle:hover { text-decoration: underline; }
+  .bulk-paste {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .bulk-paste.open { display: flex; }
+  .bulk-paste textarea {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 8px;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .bulk-paste textarea:focus { border-color: var(--sage); }
+  .bulk-paste textarea::placeholder { color: var(--text-dim); }
+  .bulk-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--sage); color: var(--ink); }
+  .btn-primary:not(:disabled):hover { background: #8fb89e; }
+  .btn-ghost {
+    background: var(--ink-soft);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-ghost:hover { background: #313a52; }
+  .btn-sm { font-size: 11px; padding: 5px 10px; }
+
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  /* ── Progress panel ───────────────────────────────────────── */
+  #progress-panel {
+    display: none;
+    margin-top: 24px;
+  }
+  #progress-panel.visible { display: block; }
+
+  .progress-status {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .progress-title {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 10px;
+    min-height: 1.4em;
+  }
+  .progress-bar-wrap {
+    background: var(--ink-soft);
+    border-radius: 99px;
+    height: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--sage);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .progress-fraction {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    margin-bottom: 14px;
+  }
+  .progress-log {
+    background: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    scroll-behavior: smooth;
+  }
+  .log-ok   { color: var(--sage); }
+  .log-err  { color: var(--warn); }
+  .log-info { color: var(--muted); }
+
+  .done-banner {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(122,158,135,.12);
+    border: 1px solid var(--sage-dim);
+    border-radius: var(--radius);
+    display: none;
+    align-items: center;
+    gap: 14px;
+  }
+  .done-banner.visible { display: flex; }
+  .done-banner p { font-size: 13px; color: var(--text); flex: 1; }
+  .done-banner strong { color: var(--paper); }
+
+  /* ── Divider ──────────────────────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── Scrollbar ────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--ink); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  @media (max-width: 520px) {
+    .field.half { display: block; width: 100%; }
+    .field.half + .field.half { margin-left: 0; }
+    .section-meta { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="header">
+    <h1>Novel EPUB Builder</h1>
+    <p>Paste chapter URLs, configure your book, and download a ready-to-read EPUB.</p>
+  </div>
+
+  <!-- ── Book metadata ───────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Book details</div>
+
+    <div class="field">
+      <label>Title</label>
+      <input id="title" type="text" placeholder="Carrying A Lantern In Daylight">
+    </div>
+
+    <div class="field">
+      <label>Author</label>
+      <input id="author" type="text" placeholder="Author name">
+    </div>
+
+    <div class="field">
+      <label>Summary (HTML allowed)</label>
+      <textarea id="summary" placeholder="<p>A short blurb about the book…</p>"></textarea>
+    </div>
+
+    <div class="field half">
+      <label>Content selector</label>
+      <input id="selector" type="text" value="div.entry-content"
+             placeholder="div.entry-content">
+    </div>
+    <div class="field half">
+      <label>Delay between requests (sec)</label>
+      <input id="delay" type="number" value="1.5" min="0.5" step="0.5">
+    </div>
+  </div>
+
+  <!-- ── Sections ───────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Sections & chapters</div>
+    <div class="sections-area" id="sections-area"></div>
+    <div class="actions-row" style="margin-top:14px;">
+      <button class="btn btn-ghost btn-sm" onclick="addSection()">+ Add section</button>
+    </div>
+  </div>
+
+  <!-- ── Build ──────────────────────────────────────────────── -->
+  <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+    <button class="btn btn-primary" id="build-btn" onclick="startBuild()">
+      Build EPUB
+    </button>
+  </div>
+
+  <!-- ── Progress ───────────────────────────────────────────── -->
+  <div id="progress-panel">
+    <hr class="divider">
+    <div class="progress-status" id="p-status">Preparing…</div>
+    <div class="progress-title" id="p-chapter"></div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="p-bar"></div>
+    </div>
+    <div class="progress-fraction" id="p-fraction"></div>
+    <div class="progress-log" id="p-log"></div>
+
+    <div class="done-banner" id="done-banner">
+      <p>Your EPUB is ready: <strong id="epub-name"></strong></p>
+      <button class="btn btn-primary" id="dl-btn" onclick="downloadEpub()">Download</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let sections = []; // [{heading, subtitle, toc_label, chapters:[{title,url}]}]
+let currentJobId = null;
+let currentEventSource = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+function addSection(heading = "Main Story", subtitle = "", toc_label = "Main Story") {
+  sections.push({ heading, subtitle, toc_label, chapters: [] });
+  renderSections();
+}
+
+// Start with one default section
+addSection();
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderSections() {
+  const area = document.getElementById("sections-area");
+  area.innerHTML = "";
+  sections.forEach((sec, si) => {
+    const el = document.createElement("div");
+    el.className = "section-block";
+    el.innerHTML = `
+      <div class="section-header" onclick="toggleSection(${si})">
+        <span class="section-label" id="sec-label-${si}">${esc(sec.heading) || "Untitled section"}</span>
+        <span class="section-count">${sec.chapters.length} ch</span>
+        <span class="section-toggle" id="sec-toggle-${si}">▲</span>
+      </div>
+      <div class="section-body open" id="sec-body-${si}">
+        <div class="section-meta">
+          <div class="field" style="margin:0">
+            <label>Section heading</label>
+            <input type="text" value="${esc(sec.heading)}" placeholder="Main Story"
+                   oninput="updateSection(${si},'heading',this.value)">
+          </div>
+          <div class="field" style="margin:0">
+            <label>TOC label</label>
+            <input type="text" value="${esc(sec.toc_label)}" placeholder="Main Story"
+                   oninput="updateSection(${si},'toc_label',this.value)">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Subtitle (optional)</label>
+            <input type="text" value="${esc(sec.subtitle)}" placeholder="e.g. Main Story"
+                   oninput="updateSection(${si},'subtitle',this.value)">
+          </div>
+        </div>
+
+        <div class="chapters-list" id="ch-list-${si}">
+          ${sec.chapters.map((ch, ci) => chapterRow(si, ci, ch)).join("")}
+        </div>
+
+        <div class="actions-row">
+          <button class="btn btn-ghost btn-sm" onclick="addChapter(${si})">+ Add chapter</button>
+          ${sections.length > 1
+            ? `<button class="btn btn-ghost btn-sm" style="color:var(--warn)" onclick="removeSection(${si})">Remove section</button>`
+            : ""}
+        </div>
+
+        <div class="bulk-area">
+          <button class="bulk-toggle" onclick="toggleBulk(${si})">Bulk paste URLs…</button>
+          <div class="bulk-paste" id="bulk-${si}">
+            <textarea id="bulk-ta-${si}"
+              placeholder="One URL per line. Optionally prefix with a title:\n\nChapter 1 | https://example.com/ch1\nhttps://example.com/ch2"></textarea>
+            <div class="bulk-hint">
+              Format per line: <code>Title | URL</code>  or just  <code>URL</code><br>
+              If no title, chapter number is used automatically.
+            </div>
+            <div>
+              <button class="btn btn-ghost btn-sm" onclick="importBulk(${si})">Import</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    area.appendChild(el);
+  });
+}
+
+function chapterRow(si, ci, ch) {
+  return `
+    <div class="chapter-row" id="ch-row-${si}-${ci}">
+      <input type="text" value="${esc(ch.title)}" placeholder="Chapter ${ci + 1}"
+             oninput="updateChapter(${si},${ci},'title',this.value)">
+      <input type="text" class="url" value="${esc(ch.url)}" placeholder="https://…"
+             oninput="updateChapter(${si},${ci},'url',this.value)">
+      <button class="btn-icon" onclick="removeChapter(${si},${ci})" title="Remove">✕</button>
+    </div>`;
+}
+
+function esc(str) {
+  return (str || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+}
+
+// ── Section / chapter mutations ────────────────────────────────────────────
+function toggleSection(si) {
+  const body = document.getElementById(`sec-body-${si}`);
+  const tog  = document.getElementById(`sec-toggle-${si}`);
+  body.classList.toggle("open");
+  tog.classList.toggle("open");
+}
+
+function updateSection(si, key, val) {
+  sections[si][key] = val;
+  if (key === "heading") {
+    const lbl = document.getElementById(`sec-label-${si}`);
+    if (lbl) lbl.textContent = val || "Untitled section";
+  }
+}
+
+function removeSection(si) {
+  sections.splice(si, 1);
+  renderSections();
+}
+
+function addChapter(si) {
+  sections[si].chapters.push({ title: "", url: "" });
+  const list = document.getElementById(`ch-list-${si}`);
+  const ci = sections[si].chapters.length - 1;
+  list.insertAdjacentHTML("beforeend", chapterRow(si, ci, { title: "", url: "" }));
+  // Update count badge
+  renderSectionCount(si);
+}
+
+function removeChapter(si, ci) {
+  sections[si].chapters.splice(ci, 1);
+  renderSections();
+}
+
+function updateChapter(si, ci, key, val) {
+  sections[si].chapters[ci][key] = val;
+  renderSectionCount(si);
+}
+
+function renderSectionCount(si) {
+  const cnt = document.querySelector(`#sec-label-${si}`)?.nextElementSibling;
+  if (cnt) cnt.textContent = `${sections[si].chapters.length} ch`;
+}
+
+// ── Bulk import ────────────────────────────────────────────────────────────
+function toggleBulk(si) {
+  document.getElementById(`bulk-${si}`).classList.toggle("open");
+}
+
+function importBulk(si) {
+  const raw = document.getElementById(`bulk-ta-${si}`).value.trim();
+  if (!raw) return;
+
+  const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+  const existingCount = sections[si].chapters.length;
+
+  lines.forEach((line, idx) => {
+    const pipe = line.indexOf("|");
+    let title, url;
+    if (pipe !== -1) {
+      title = line.slice(0, pipe).trim();
+      url   = line.slice(pipe + 1).trim();
+    } else {
+      url   = line.trim();
+      title = `Chapter ${existingCount + idx + 1}`;
+    }
+    sections[si].chapters.push({ title, url });
+  });
+
+  document.getElementById(`bulk-ta-${si}`).value = "";
+  document.getElementById(`bulk-${si}`).classList.remove("open");
+  renderSections();
+}
+
+// ── Build ──────────────────────────────────────────────────────────────────
+function startBuild() {
+  const title    = document.getElementById("title").value.trim();
+  const author   = document.getElementById("author").value.trim();
+  const summary  = document.getElementById("summary").value.trim();
+  const selector = document.getElementById("selector").value.trim() || "div.entry-content";
+  const delay    = parseFloat(document.getElementById("delay").value) || 1.5;
+
+  if (!title)  return alert("Please enter a title.");
+  if (!author) return alert("Please enter an author.");
+
+  const hasChapters = sections.some(s => s.chapters.some(c => c.url));
+  if (!hasChapters) return alert("Add at least one chapter URL.");
+
+  // Read chapter inputs directly from the DOM (in case oninput was missed)
+  sections.forEach((sec, si) => {
+    sec.chapters.forEach((ch, ci) => {
+      const row = document.getElementById(`ch-row-${si}-${ci}`);
+      if (!row) return;
+      const [titleIn, urlIn] = row.querySelectorAll("input");
+      ch.title = titleIn.value.trim() || `Chapter ${ci + 1}`;
+      ch.url   = urlIn.value.trim();
+    });
+  });
+
+  const payload = {
+    title, author,
+    summary_html:     summary,
+    content_selector: selector,
+    delay_seconds:    delay,
+    sections: sections.map(sec => ({
+      heading:   sec.heading,
+      toc_label: sec.toc_label,
+      subtitle:  sec.subtitle,
+      chapters:  sec.chapters.filter(c => c.url),
+    })).filter(s => s.chapters.length > 0),
+  };
+
+  document.getElementById("build-btn").disabled = true;
+  if (currentEventSource) currentEventSource.close();
+
+  // Reset progress UI
+  document.getElementById("progress-panel").classList.add("visible");
+  document.getElementById("done-banner").classList.remove("visible");
+  document.getElementById("p-log").innerHTML = "";
+  document.getElementById("p-bar").style.width = "0%";
+  document.getElementById("p-fraction").textContent = "";
+  document.getElementById("p-status").textContent = "Starting…";
+  document.getElementById("p-chapter").textContent = "";
+
+  fetch("/api/build", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    currentJobId = data.job_id;
+    listenProgress(currentJobId);
+  })
+  .catch(err => {
+    log(`Error starting build: ${err}`, "err");
+    document.getElementById("build-btn").disabled = false;
+  });
+}
+
+function listenProgress(jobId) {
+  const es = new EventSource(`/api/progress/${jobId}`);
+  currentEventSource = es;
+  let lastTitle = "";
+
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const { status, progress, errors, epub_name } = data;
+
+    // Status line
+    const statusMap = {
+      queued:   "Queued…",
+      scraping: "Scraping chapters…",
+      building: "Assembling EPUB…",
+      done:     "Done.",
+      error:    "Error",
+    };
+    document.getElementById("p-status").textContent = statusMap[status] || status;
+
+    if (status === "scraping" && progress.total > 0) {
+      const { current, total, title } = progress;
+      const pct = Math.round((current / total) * 100);
+      document.getElementById("p-bar").style.width = pct + "%";
+      document.getElementById("p-fraction").textContent = `${current} / ${total}`;
+
+      if (title && title !== lastTitle) {
+        lastTitle = title;
+        document.getElementById("p-chapter").textContent = title;
+
+        const cls = errors.includes(title) ? "log-err" : "log-ok";
+        const mark = errors.includes(title) ? "✕" : "✓";
+        log(`${mark}  ${title}`, cls);
+      }
+    }
+
+    if (status === "building") {
+      document.getElementById("p-bar").style.width = "100%";
+      document.getElementById("p-chapter").textContent = "Building EPUB file…";
+      log("Building EPUB…", "info");
+    }
+
+    if (status === "done") {
+      document.getElementById("p-bar").style.width = "100%";
+      document.getElementById("p-chapter").textContent = "";
+      log("EPUB ready.", "log-ok");
+      document.getElementById("epub-name").textContent = epub_name;
+      document.getElementById("done-banner").classList.add("visible");
+      document.getElementById("build-btn").disabled = false;
+      es.close();
+    }
+  };
+
+  es.onerror = () => {
+    log("Connection lost. Reload to check status.", "err");
+    document.getElementById("build-btn").disabled = false;
+    es.close();
+  };
+}
+
+function log(msg, cls = "") {
+  const box = document.getElementById("p-log");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function downloadEpub() {
+  if (currentJobId) {
+    window.location.href = `/api/download/${currentJobId}`;
+  }
+}
+</script>
+</body>
+</html>
