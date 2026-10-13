@@ -757,6 +757,11 @@ async def index():
     return FileResponse("static/index.html")
 
 
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+
 class AnalyzeRequest(BaseModel):
     url: str
 

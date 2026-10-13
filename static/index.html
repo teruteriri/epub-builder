@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Novel EPUB Builder</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="alternate icon" type="image/png" href="/static/favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#0f1117">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -40,7 +44,18 @@
 
   /* Header */
   .header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
-  .header h1 { font-family: var(--font-dis); font-size: 32px; font-weight: 400; color: var(--paper); letter-spacing: -0.3px; }
+  .header-brand { display: flex; align-items: center; gap: 16px; }
+  .header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+    display: block;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .header-icon:hover { transform: translateY(-2px) scale(1.04); }
+  .header h1 { font-family: var(--font-dis); font-size: 32px; font-weight: 400; color: var(--paper); letter-spacing: -0.3px; line-height: 1.1; }
   .header p  { color: var(--muted); margin-top: 6px; font-size: 13px; font-weight: 300; }
 
   /* Stage tabs */
@@ -235,8 +250,13 @@
 <div class="shell">
 
   <div class="header">
-    <h1>Novel EPUB Builder</h1>
-    <p>Scrape chapters to JSON, then build your EPUB whenever you're ready.</p>
+    <div class="header-brand">
+      <img src="/static/favicon.svg" alt="Novel EPUB Builder logo" class="header-icon" width="48" height="48">
+      <div>
+        <h1>Novel EPUB Builder</h1>
+        <p>Scrape chapters to JSON, then build your EPUB whenever you're ready.</p>
+      </div>
+    </div>
   </div>
 
   <!-- Stage tabs -->
