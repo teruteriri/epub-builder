@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* ── Reset & tokens ───────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
@@ -37,330 +36,199 @@
     min-height: 100vh;
   }
 
-  /* ── Layout ───────────────────────────────────────────────── */
-  .shell {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 48px 24px 80px;
-  }
+  .shell { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
 
-  /* ── Header ───────────────────────────────────────────────── */
-  .header {
-    margin-bottom: 48px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 24px;
-  }
-  .header h1 {
-    font-family: var(--font-dis);
-    font-size: 32px;
-    font-weight: 400;
-    color: var(--paper);
-    letter-spacing: -0.3px;
-    line-height: 1.2;
-  }
-  .header p {
-    color: var(--muted);
-    margin-top: 6px;
-    font-size: 13px;
-    font-weight: 300;
-  }
+  /* Header */
+  .header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+  .header h1 { font-family: var(--font-dis); font-size: 32px; font-weight: 400; color: var(--paper); letter-spacing: -0.3px; }
+  .header p  { color: var(--muted); margin-top: 6px; font-size: 13px; font-weight: 300; }
 
-  /* ── Section card ─────────────────────────────────────────── */
-  .card {
-    background: var(--ink-mid);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-    margin-bottom: 16px;
+  /* Stage tabs */
+  .stage-tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+  .stage-tab {
+    flex: 1; padding: 10px; text-align: center; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--ink-mid);
+    color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.15s;
   }
-  .card-title {
-    font-family: var(--font-dis);
-    font-size: 18px;
-    font-weight: 400;
-    color: var(--paper);
-    margin-bottom: 18px;
+  .stage-tab:hover { color: var(--text); background: var(--ink-soft); }
+  .stage-tab.active { background: var(--ink-soft); color: var(--paper); border-color: var(--sage); }
+  .stage-tab .tab-num {
+    display: inline-block; width: 20px; height: 20px; line-height: 20px;
+    border-radius: 50%; background: var(--ink-soft); color: var(--muted);
+    font-size: 11px; text-align: center; margin-right: 6px;
   }
+  .stage-tab.active .tab-num { background: var(--sage); color: var(--ink); }
 
-  /* ── Form controls ────────────────────────────────────────── */
+  /* Stage panels */
+  .stage-panel { display: none; }
+  .stage-panel.active { display: block; }
+
+  /* Cards */
+  .card { background: var(--ink-mid); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+  .card-title { font-family: var(--font-dis); font-size: 18px; font-weight: 400; color: var(--paper); margin-bottom: 18px; }
+
+  /* Fields */
   .field { margin-bottom: 14px; }
   .field:last-child { margin-bottom: 0; }
-  .field label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--muted);
-    margin-bottom: 5px;
-    letter-spacing: 0.3px;
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 5px; letter-spacing: 0.3px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--ink); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--font-ui); font-size: 13px; padding: 8px 10px;
+    outline: none; transition: border-color 0.15s; resize: vertical;
   }
-  .field input,
-  .field textarea,
-  .field select {
-    width: 100%;
-    background: var(--ink);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--font-ui);
-    font-size: 13px;
-    padding: 8px 10px;
-    outline: none;
-    transition: border-color 0.15s;
-    resize: vertical;
-  }
-  .field input:focus,
-  .field textarea:focus,
-  .field select:focus {
-    border-color: var(--sage);
-  }
-  .field input::placeholder,
-  .field textarea::placeholder {
-    color: var(--text-dim);
-  }
+  .field input:focus, .field textarea:focus { border-color: var(--sage); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--text-dim); }
   .field textarea { min-height: 80px; }
-  .field.half { display: inline-block; width: calc(50% - 6px); }
-  .field.half + .field.half { margin-left: 12px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  /* ── Sections builder ─────────────────────────────────────── */
+  /* Sections */
   .sections-area { display: flex; flex-direction: column; gap: 12px; }
-
-  .section-block {
-    background: var(--ink);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: var(--ink-soft);
-    cursor: pointer;
-    user-select: none;
-  }
+  .section-block { background: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .section-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--ink-soft); cursor: pointer; user-select: none; }
   .section-header:hover { background: #313a52; }
-  .section-label {
-    flex: 1;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--paper);
-  }
-  .section-count {
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .section-toggle {
-    color: var(--muted);
-    font-size: 10px;
-    transition: transform 0.2s;
-  }
+  .section-label { flex: 1; font-size: 13px; font-weight: 500; color: var(--paper); }
+  .section-count { font-size: 11px; color: var(--muted); }
+  .section-toggle { color: var(--muted); font-size: 10px; transition: transform 0.2s; }
   .section-toggle.open { transform: rotate(180deg); }
   .section-body { padding: 14px; display: none; }
   .section-body.open { display: block; }
+  .section-meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 
-  .section-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  /* Chapter list within a section */
+  /* Chapter rows */
   .chapters-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-  .chapter-row {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-  }
+  .chapter-row { display: flex; gap: 8px; align-items: flex-start; }
   .chapter-row input {
-    background: var(--ink-mid);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--font-ui);
-    font-size: 12px;
-    padding: 6px 8px;
-    outline: none;
-    flex: 1;
-    min-width: 0;
-    transition: border-color 0.15s;
+    background: var(--ink-mid); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--font-ui); font-size: 12px; padding: 6px 8px;
+    outline: none; flex: 1; min-width: 0; transition: border-color 0.15s;
   }
   .chapter-row input:focus { border-color: var(--sage); }
   .chapter-row input::placeholder { color: var(--text-dim); }
   .chapter-row input.url { flex: 2; }
-  .btn-icon {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1;
-    flex-shrink: 0;
-    transition: color 0.15s, background 0.15s;
-  }
+  .btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; padding: 6px; border-radius: 4px; font-size: 14px; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
   .btn-icon:hover { color: var(--warn); background: rgba(201,122,90,.1); }
 
-  /* Bulk-paste area */
+  /* Bulk paste */
   .bulk-area { margin-top: 10px; }
-  .bulk-toggle {
-    font-size: 11px;
-    color: var(--sage);
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-    margin-bottom: 6px;
-    font-family: var(--font-ui);
-  }
+  .bulk-toggle { font-size: 11px; color: var(--sage); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 6px; font-family: var(--font-ui); }
   .bulk-toggle:hover { text-decoration: underline; }
-  .bulk-paste {
-    display: none;
-    flex-direction: column;
-    gap: 6px;
-  }
+  .bulk-paste { display: none; flex-direction: column; gap: 6px; }
   .bulk-paste.open { display: flex; }
-  .bulk-paste textarea {
-    background: var(--ink-mid);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    padding: 8px;
-    resize: vertical;
-    min-height: 90px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
+  .bulk-paste textarea { background: var(--ink-mid); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: 'Courier New', monospace; font-size: 11px; padding: 8px; resize: vertical; min-height: 90px; outline: none; transition: border-color 0.15s; }
   .bulk-paste textarea:focus { border-color: var(--sage); }
   .bulk-paste textarea::placeholder { color: var(--text-dim); }
-  .bulk-hint {
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.4;
-  }
+  .bulk-hint { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
-  /* ── Buttons ──────────────────────────────────────────────── */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-family: var(--font-ui);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 8px 14px;
-    transition: opacity 0.15s, background 0.15s;
-  }
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--radius); cursor: pointer; font-family: var(--font-ui); font-size: 13px; font-weight: 500; padding: 8px 14px; transition: opacity 0.15s, background 0.15s; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-primary { background: var(--sage); color: var(--ink); }
   .btn-primary:not(:disabled):hover { background: #8fb89e; }
-  .btn-ghost {
-    background: var(--ink-soft);
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
+  .btn-ghost { background: var(--ink-soft); border: 1px solid var(--border); color: var(--text); }
   .btn-ghost:hover { background: #313a52; }
   .btn-sm { font-size: 11px; padding: 5px 10px; }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .action-right { display: flex; justify-content: flex-end; margin-top: 4px; }
 
-  .actions-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-  }
-
-  /* ── Progress panel ───────────────────────────────────────── */
-  #progress-panel {
-    display: none;
-    margin-top: 24px;
-  }
-  #progress-panel.visible { display: block; }
-
-  .progress-status {
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-  .progress-title {
-    font-size: 13px;
-    color: var(--text);
-    margin-bottom: 10px;
-    min-height: 1.4em;
-  }
-  .progress-bar-wrap {
-    background: var(--ink-soft);
-    border-radius: 99px;
-    height: 4px;
-    overflow: hidden;
-    margin-bottom: 10px;
-  }
-  .progress-bar {
-    height: 100%;
-    background: var(--sage);
-    border-radius: 99px;
-    width: 0%;
-    transition: width 0.4s ease;
-  }
-  .progress-fraction {
-    font-size: 11px;
-    color: var(--muted);
-    text-align: right;
-    margin-bottom: 14px;
-  }
-  .progress-log {
-    background: var(--ink);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    max-height: 160px;
-    overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.7;
-    scroll-behavior: smooth;
-  }
+  /* Progress */
+  .progress-panel { display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .progress-panel.visible { display: block; }
+  .progress-status { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .progress-title { font-size: 13px; color: var(--text); margin-bottom: 10px; min-height: 1.4em; }
+  .progress-bar-wrap { background: var(--ink-soft); border-radius: 99px; height: 4px; overflow: hidden; margin-bottom: 10px; }
+  .progress-bar { height: 100%; background: var(--sage); border-radius: 99px; width: 0%; transition: width 0.4s ease; }
+  .progress-fraction { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 14px; }
+  .progress-log { background: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; max-height: 160px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text-dim); line-height: 1.7; scroll-behavior: smooth; }
   .log-ok   { color: var(--sage); }
   .log-err  { color: var(--warn); }
   .log-info { color: var(--muted); }
 
-  .done-banner {
-    display: none;
-    margin-top: 16px;
-    padding: 14px 18px;
-    background: rgba(122,158,135,.12);
-    border: 1px solid var(--sage-dim);
-    border-radius: var(--radius);
-    display: none;
-    align-items: center;
-    gap: 14px;
-  }
+  /* Done banners */
+  .done-banner { display: none; margin-top: 16px; padding: 14px 18px; background: rgba(122,158,135,.12); border: 1px solid var(--sage-dim); border-radius: var(--radius); align-items: center; gap: 14px; }
   .done-banner.visible { display: flex; }
   .done-banner p { font-size: 13px; color: var(--text); flex: 1; }
   .done-banner strong { color: var(--paper); }
 
-  /* ── Divider ──────────────────────────────────────────────── */
-  .divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 24px 0;
+  /* Stage 2 upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    background: var(--ink);
   }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--sage); background: rgba(122,158,135,.06); }
+  .upload-zone p { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .upload-zone .file-chosen { color: var(--sage); font-size: 13px; margin-top: 8px; font-weight: 500; display: none; }
+  .upload-zone .file-chosen.visible { display: block; }
 
-  /* ── Scrollbar ────────────────────────────────────────────── */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--ink); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
   @media (max-width: 520px) {
-    .field.half { display: block; width: 100%; }
-    .field.half + .field.half { margin-left: 0; }
-    .section-meta { grid-template-columns: 1fr; }
+    .row-2, .section-meta { grid-template-columns: 1fr; }
+    .stage-tab .tab-num { display: none; }
   }
+
+  /* Auto-detect */
+  .analyze-row { display: flex; gap: 8px; align-items: flex-end; }
+  .analyze-row .field { flex: 1; margin-bottom: 0; }
+  .btn-analyze {
+    background: linear-gradient(135deg, var(--sage-dim), var(--sage));
+    color: var(--ink); font-weight: 600; white-space: nowrap;
+    padding: 8px 16px; border-radius: var(--radius); border: none;
+    cursor: pointer; font-family: var(--font-ui); font-size: 12px;
+    transition: opacity 0.2s, transform 0.15s;
+    height: 35px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-analyze:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-analyze:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-analyze .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(15,17,23,.2); border-top-color: var(--ink);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .detect-results {
+    margin-top: 12px; padding: 14px 16px;
+    background: var(--ink); border: 1px solid var(--border); border-radius: var(--radius);
+    display: none;
+  }
+  .detect-results.visible { display: block; }
+  .detect-results .detect-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .detect-results .detect-title {
+    font-size: 13px; font-weight: 500; color: var(--paper);
+  }
+  .badge {
+    display: inline-flex; align-items: center; padding: 2px 8px;
+    border-radius: 99px; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .badge-high   { background: rgba(122,158,135,.2); color: var(--sage); border: 1px solid var(--sage-dim); }
+  .badge-medium { background: rgba(201,170,90,.15); color: #c9aa5a; border: 1px solid rgba(201,170,90,.3); }
+  .badge-low    { background: rgba(201,122,90,.15); color: var(--warn); border: 1px solid rgba(201,122,90,.3); }
+  .detect-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
+  }
+  .detect-item { font-size: 12px; }
+  .detect-item .detect-label { color: var(--muted); margin-bottom: 2px; }
+  .detect-item .detect-value { color: var(--text); font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; }
+  .detect-item .detect-value.empty { color: var(--text-dim); font-style: italic; font-family: var(--font-ui); }
+  .detect-warn {
+    margin-top: 10px; padding: 8px 12px; border-radius: var(--radius);
+    background: rgba(201,122,90,.1); border: 1px solid rgba(201,122,90,.2);
+    font-size: 11px; color: var(--warn); line-height: 1.5;
+  }
+  .detect-actions {
+    margin-top: 12px; display: flex; gap: 8px;
+  }
+  .mode-pills { display: inline-flex; background: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
+  .mode-pill { background: none; border: none; color: var(--muted); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; font-family: var(--font-ui); }
+  .mode-pill:hover { color: var(--text); }
+  .mode-pill.active { background: var(--ink-soft); color: var(--paper); }
 </style>
 </head>
 <body>
@@ -368,369 +236,662 @@
 
   <div class="header">
     <h1>Novel EPUB Builder</h1>
-    <p>Paste chapter URLs, configure your book, and download a ready-to-read EPUB.</p>
+    <p>Scrape chapters to JSON, then build your EPUB whenever you're ready.</p>
   </div>
 
-  <!-- ── Book metadata ───────────────────────────────────────── -->
-  <div class="card">
-    <div class="card-title">Book details</div>
-
-    <div class="field">
-      <label>Title</label>
-      <input id="title" type="text" placeholder="Carrying A Lantern In Daylight">
+  <!-- Stage tabs -->
+  <div class="stage-tabs">
+    <div class="stage-tab active" id="tab-1" onclick="switchTab(1)">
+      <span class="tab-num">1</span>Scrape
     </div>
-
-    <div class="field">
-      <label>Author</label>
-      <input id="author" type="text" placeholder="Author name">
-    </div>
-
-    <div class="field">
-      <label>Summary (HTML allowed)</label>
-      <textarea id="summary" placeholder="<p>A short blurb about the book…</p>"></textarea>
-    </div>
-
-    <div class="field half">
-      <label>Content selector</label>
-      <input id="selector" type="text" value="div.entry-content"
-             placeholder="div.entry-content">
-    </div>
-    <div class="field half">
-      <label>Delay between requests (sec)</label>
-      <input id="delay" type="number" value="1.5" min="0.5" step="0.5">
+    <div class="stage-tab" id="tab-2" onclick="switchTab(2)">
+      <span class="tab-num">2</span>Build EPUB
     </div>
   </div>
 
-  <!-- ── Sections ───────────────────────────────────────────── -->
-  <div class="card">
-    <div class="card-title">Sections & chapters</div>
-    <div class="sections-area" id="sections-area"></div>
-    <div class="actions-row" style="margin-top:14px;">
-      <button class="btn btn-ghost btn-sm" onclick="addSection()">+ Add section</button>
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- Stage 1: Scrape                                        -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="stage-panel active" id="panel-1">
+
+    <div class="card">
+      <div class="card-title">Scrape settings</div>
+      <div class="field">
+        <label>Book title <span style="color:var(--text-dim);font-weight:300">(used to name the JSON file)</span></label>
+        <input id="s-title" type="text" placeholder="Carrying A Lantern In Daylight">
+      </div>
+
+      <!-- Auto-detect -->
+      <div style="margin-bottom:14px; padding:14px 16px; background:var(--ink); border:1px solid var(--border); border-radius:var(--radius);">
+        <div class="analyze-row">
+          <div class="field">
+            <label>Analyze a chapter URL <span style="color:var(--text-dim);font-weight:300">— auto-detect selectors</span></label>
+            <input id="analyze-url" type="text" placeholder="https://…/chapter-1">
+          </div>
+          <button class="btn-analyze" id="analyze-btn" onclick="analyzePage()">
+            <span id="analyze-btn-text">⚡ Analyze page</span>
+          </button>
+        </div>
+        <div class="detect-results" id="detect-results">
+          <div class="detect-header">
+            <span class="detect-title">Detected settings</span>
+            <span class="badge" id="detect-badge"></span>
+          </div>
+          <div class="detect-grid">
+            <div class="detect-item">
+              <div class="detect-label">Content selector</div>
+              <div class="detect-value" id="detect-content"></div>
+            </div>
+            <div class="detect-item">
+              <div class="detect-label">Next-chapter selector</div>
+              <div class="detect-value" id="detect-next"></div>
+            </div>
+            <div class="detect-item">
+              <div class="detect-label">Paragraph style</div>
+              <div class="detect-value" id="detect-para"></div>
+            </div>
+            <div class="detect-item">
+              <div class="detect-label">URL pattern</div>
+              <div class="detect-value" id="detect-pattern"></div>
+            </div>
+          </div>
+          <div class="detect-warn" id="detect-warn" style="display:none"></div>
+          <div class="detect-actions">
+            <button class="btn btn-primary btn-sm" onclick="applyDetected()">Apply detected settings</button>
+            <button class="btn btn-ghost btn-sm" onclick="dismissDetected()">Dismiss</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Content selector</label>
+          <input id="s-selector" type="text" value="div.entry-content" placeholder="div.entry-content">
+        </div>
+        <div class="field">
+          <label>Delay between requests (sec)</label>
+          <input id="s-delay" type="number" value="1.5" min="0.5" step="0.5">
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- ── Build ──────────────────────────────────────────────── -->
-  <div style="display:flex; justify-content:flex-end; margin-top:4px;">
-    <button class="btn btn-primary" id="build-btn" onclick="startBuild()">
-      Build EPUB
-    </button>
-  </div>
+    <!-- Stage 1 Chapters card -->
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Chapters to scrape</span>
+        <div class="mode-pills">
+          <button type="button" class="mode-pill active" id="mode-chain-btn" onclick="setScrapeMode('chain')">Chain mode</button>
+          <button type="button" class="mode-pill" id="mode-manual-btn" onclick="setScrapeMode('manual')">Manual list</button>
+        </div>
+      </div>
 
-  <!-- ── Progress ───────────────────────────────────────────── -->
-  <div id="progress-panel">
-    <hr class="divider">
-    <div class="progress-status" id="p-status">Preparing…</div>
-    <div class="progress-title" id="p-chapter"></div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar" id="p-bar"></div>
+      <!-- Chain mode panel -->
+      <div id="chain-panel">
+        <div class="field">
+          <label>First chapter URL</label>
+          <input id="s-chain-start" type="text" placeholder="https://…/chapter-1">
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Next-chapter link selector</label>
+            <input id="s-next-selector" type="text" placeholder="e.g. li.next a  (auto-detected or manual)">
+          </div>
+          <div class="field">
+            <label>Number of chapters to scrape</label>
+            <input id="s-chain-count" type="number" min="1" placeholder="e.g. 150">
+          </div>
+        </div>
+        <div class="field">
+          <label>Chapter title prefix <span style="font-weight:300;color:var(--text-dim)">(optional, default "Chapter")</span></label>
+          <input id="s-chain-prefix" type="text" value="Chapter" placeholder="Chapter">
+        </div>
+        <p class="bulk-hint" style="margin-top:6px;">
+          The scraper begins at the first chapter and follows each page's "next chapter" link automatically.
+        </p>
+      </div>
+
+      <!-- Manual list panel -->
+      <div id="manual-panel" style="display:none">
+        <div class="chapters-list" id="manual-chapters-list"></div>
+        <div class="actions-row">
+          <button class="btn btn-ghost btn-sm" onclick="addManualChapter()">+ Add chapter</button>
+        </div>
+        <div class="bulk-area" style="margin-top:12px;">
+          <button class="bulk-toggle" onclick="toggleBulkManual()">Bulk paste URLs…</button>
+          <div class="bulk-paste" id="bulk-manual">
+            <textarea id="bulk-manual-ta" placeholder="One chapter per line:&#10;&#10;Chapter 1 | https://example.com/ch1&#10;https://example.com/ch2"></textarea>
+            <div class="bulk-hint">Format: <code>Title | URL</code> or just <code>URL</code> (auto-numbered)</div>
+            <div><button class="btn btn-ghost btn-sm" onclick="importBulkManual()">Import</button></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="progress-fraction" id="p-fraction"></div>
-    <div class="progress-log" id="p-log"></div>
 
-    <div class="done-banner" id="done-banner">
-      <p>Your EPUB is ready: <strong id="epub-name"></strong></p>
-      <button class="btn btn-primary" id="dl-btn" onclick="downloadEpub()">Download</button>
+    <div class="action-right">
+      <button class="btn btn-primary" id="scrape-btn" onclick="startScrape()">Scrape chapters</button>
     </div>
-  </div>
 
-</div>
+    <!-- Scrape progress -->
+    <div class="progress-panel" id="scrape-progress">
+      <div class="progress-status" id="sp-status">Preparing…</div>
+      <div class="progress-title"  id="sp-chapter"></div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="sp-bar"></div></div>
+      <div class="progress-fraction" id="sp-fraction"></div>
+      <div class="progress-log" id="sp-log"></div>
+
+      <div class="done-banner" id="scrape-done">
+        <p>Scrape complete — <strong id="json-name"></strong> is ready.</p>
+        <button class="btn btn-primary" onclick="downloadJson()">Download JSON</button>
+        <button class="btn btn-ghost"   onclick="switchTab(2)">Go to Build →</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-1 -->
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- Stage 2: Build EPUB                                    -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="stage-panel" id="panel-2">
+
+    <div class="card">
+      <div class="card-title">Book details</div>
+      <div class="row-2">
+        <div class="field">
+          <label>Title</label>
+          <input id="b-title" type="text" placeholder="Carrying A Lantern In Daylight">
+        </div>
+        <div class="field">
+          <label>Author</label>
+          <input id="b-author" type="text" placeholder="Author name">
+        </div>
+      </div>
+      <div class="field">
+        <label>Summary (HTML allowed)</label>
+        <textarea id="b-summary" placeholder="<p>A short blurb about the book…</p>"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cache JSON</div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('json-upload').click()"
+           ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <p>Click to choose your <code>.json</code> file, or drag it here</p>
+        <p style="font-size:11px; color:var(--text-dim)">The file downloaded from Stage 1</p>
+        <div class="file-chosen" id="file-chosen"></div>
+      </div>
+      <input type="file" id="json-upload" accept=".json" style="display:none" onchange="onFileChosen(this)">
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Sections & chapters</span>
+        <span id="build-total-badge" style="font-size:12px; font-weight:500; color:var(--sage)"></span>
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">
+        Divide your chapters into EPUB sections (e.g. Main Story, Extras). Chapter order follows your cache sequentially.
+      </p>
+      <div class="sections-area" id="build-sections-area"></div>
+      <div class="actions-row" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-ghost btn-sm" onclick="addBuildSection()">+ Add section</button>
+        <span id="build-alloc-status" style="font-size:11px; color:var(--muted);"></span>
+      </div>
+    </div>
+
+    <div class="action-right">
+      <button class="btn btn-primary" id="build-btn" onclick="startBuild()">Build EPUB</button>
+    </div>
+
+    <!-- Build progress -->
+    <div class="progress-panel" id="build-progress">
+      <div class="progress-status" id="bp-status">Preparing…</div>
+      <div class="progress-log" id="bp-log"></div>
+
+      <div class="done-banner" id="build-done">
+        <p>Your EPUB is ready: <strong id="epub-name"></strong></p>
+        <button class="btn btn-primary" onclick="downloadEpub()">Download EPUB</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-2 -->
+
+</div><!-- /shell -->
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
-let sections = []; // [{heading, subtitle, toc_label, chapters:[{title,url}]}]
-let currentJobId = null;
-let currentEventSource = null;
+// ── Shared state ───────────────────────────────────────────────────────────
+let scrapeMode         = "chain"; // "chain" or "manual"
+let manualChapters     = [];      // [{title, url}]
+let buildSections      = [];      // [{heading, subtitle, toc_label, chapterCount}]
+let totalCacheChapters = 0;       // chapters parsed from loaded JSON cache
+let scrapeJobId        = null;
+let buildJobId         = null;
+let currentES          = null;
+let chosenFile         = null;
 
-// ── Init ───────────────────────────────────────────────────────────────────
-function addSection(heading = "Main Story", subtitle = "", toc_label = "Main Story") {
-  sections.push({ heading, subtitle, toc_label, chapters: [] });
-  renderSections();
-}
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(n) {
+  document.querySelectorAll(".stage-tab").forEach((t, i) => t.classList.toggle("active", i + 1 === n));
+  document.querySelectorAll(".stage-panel").forEach((p, i) => p.classList.toggle("active", i + 1 === n));
 
-// Start with one default section
-addSection();
-
-// ── Render ─────────────────────────────────────────────────────────────────
-function renderSections() {
-  const area = document.getElementById("sections-area");
-  area.innerHTML = "";
-  sections.forEach((sec, si) => {
-    const el = document.createElement("div");
-    el.className = "section-block";
-    el.innerHTML = `
-      <div class="section-header" onclick="toggleSection(${si})">
-        <span class="section-label" id="sec-label-${si}">${esc(sec.heading) || "Untitled section"}</span>
-        <span class="section-count">${sec.chapters.length} ch</span>
-        <span class="section-toggle" id="sec-toggle-${si}">▲</span>
-      </div>
-      <div class="section-body open" id="sec-body-${si}">
-        <div class="section-meta">
-          <div class="field" style="margin:0">
-            <label>Section heading</label>
-            <input type="text" value="${esc(sec.heading)}" placeholder="Main Story"
-                   oninput="updateSection(${si},'heading',this.value)">
-          </div>
-          <div class="field" style="margin:0">
-            <label>TOC label</label>
-            <input type="text" value="${esc(sec.toc_label)}" placeholder="Main Story"
-                   oninput="updateSection(${si},'toc_label',this.value)">
-          </div>
-          <div class="field" style="margin:0">
-            <label>Subtitle (optional)</label>
-            <input type="text" value="${esc(sec.subtitle)}" placeholder="e.g. Main Story"
-                   oninput="updateSection(${si},'subtitle',this.value)">
-          </div>
-        </div>
-
-        <div class="chapters-list" id="ch-list-${si}">
-          ${sec.chapters.map((ch, ci) => chapterRow(si, ci, ch)).join("")}
-        </div>
-
-        <div class="actions-row">
-          <button class="btn btn-ghost btn-sm" onclick="addChapter(${si})">+ Add chapter</button>
-          ${sections.length > 1
-            ? `<button class="btn btn-ghost btn-sm" style="color:var(--warn)" onclick="removeSection(${si})">Remove section</button>`
-            : ""}
-        </div>
-
-        <div class="bulk-area">
-          <button class="bulk-toggle" onclick="toggleBulk(${si})">Bulk paste URLs…</button>
-          <div class="bulk-paste" id="bulk-${si}">
-            <textarea id="bulk-ta-${si}"
-              placeholder="One URL per line. Optionally prefix with a title:\n\nChapter 1 | https://example.com/ch1\nhttps://example.com/ch2"></textarea>
-            <div class="bulk-hint">
-              Format per line: <code>Title | URL</code>  or just  <code>URL</code><br>
-              If no title, chapter number is used automatically.
-            </div>
-            <div>
-              <button class="btn btn-ghost btn-sm" onclick="importBulk(${si})">Import</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    area.appendChild(el);
-  });
-}
-
-function chapterRow(si, ci, ch) {
-  return `
-    <div class="chapter-row" id="ch-row-${si}-${ci}">
-      <input type="text" value="${esc(ch.title)}" placeholder="Chapter ${ci + 1}"
-             oninput="updateChapter(${si},${ci},'title',this.value)">
-      <input type="text" class="url" value="${esc(ch.url)}" placeholder="https://…"
-             oninput="updateChapter(${si},${ci},'url',this.value)">
-      <button class="btn-icon" onclick="removeChapter(${si},${ci})" title="Remove">✕</button>
-    </div>`;
-}
-
-function esc(str) {
-  return (str || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
-}
-
-// ── Section / chapter mutations ────────────────────────────────────────────
-function toggleSection(si) {
-  const body = document.getElementById(`sec-body-${si}`);
-  const tog  = document.getElementById(`sec-toggle-${si}`);
-  body.classList.toggle("open");
-  tog.classList.toggle("open");
-}
-
-function updateSection(si, key, val) {
-  sections[si][key] = val;
-  if (key === "heading") {
-    const lbl = document.getElementById(`sec-label-${si}`);
-    if (lbl) lbl.textContent = val || "Untitled section";
+  // When switching to Build, pre-fill title from Stage 1 if blank
+  if (n === 2) {
+    const sTitle = document.getElementById("s-title").value.trim();
+    const bTitle = document.getElementById("b-title");
+    if (sTitle && !bTitle.value) bTitle.value = sTitle;
   }
 }
 
-function removeSection(si) {
-  sections.splice(si, 1);
-  renderSections();
+// ── Stage 1: Mode toggle & manual chapters ─────────────────────────────────
+function setScrapeMode(mode) {
+  scrapeMode = mode;
+  document.getElementById("mode-chain-btn").classList.toggle("active", mode === "chain");
+  document.getElementById("mode-manual-btn").classList.toggle("active", mode === "manual");
+  document.getElementById("chain-panel").style.display = mode === "chain" ? "block" : "none";
+  document.getElementById("manual-panel").style.display = mode === "manual" ? "block" : "none";
 }
 
-function addChapter(si) {
-  sections[si].chapters.push({ title: "", url: "" });
-  const list = document.getElementById(`ch-list-${si}`);
-  const ci = sections[si].chapters.length - 1;
-  list.insertAdjacentHTML("beforeend", chapterRow(si, ci, { title: "", url: "" }));
-  // Update count badge
-  renderSectionCount(si);
+function addManualChapter(title = "", url = "") {
+  manualChapters.push({ title, url });
+  renderManualChapters();
 }
 
-function removeChapter(si, ci) {
-  sections[si].chapters.splice(ci, 1);
-  renderSections();
+function removeManualChapter(ci) {
+  manualChapters.splice(ci, 1);
+  renderManualChapters();
 }
 
-function updateChapter(si, ci, key, val) {
-  sections[si].chapters[ci][key] = val;
-  renderSectionCount(si);
+function renderManualChapters() {
+  const list = document.getElementById("manual-chapters-list");
+  list.innerHTML = "";
+  manualChapters.forEach((ch, ci) => {
+    const row = document.createElement("div");
+    row.className = "chapter-row";
+    row.innerHTML = `
+      <input type="text" value="${esc(ch.title)}" placeholder="Chapter ${ci + 1}"
+             oninput="manualChapters[${ci}].title = this.value">
+      <input type="text" class="url" value="${esc(ch.url)}" placeholder="https://…"
+             oninput="manualChapters[${ci}].url = this.value">
+      <button class="btn-icon" onclick="removeManualChapter(${ci})" title="Remove">✕</button>
+    `;
+    list.appendChild(row);
+  });
 }
 
-function renderSectionCount(si) {
-  const cnt = document.querySelector(`#sec-label-${si}`)?.nextElementSibling;
-  if (cnt) cnt.textContent = `${sections[si].chapters.length} ch`;
+function toggleBulkManual() {
+  document.getElementById("bulk-manual").classList.toggle("open");
 }
 
-// ── Bulk import ────────────────────────────────────────────────────────────
-function toggleBulk(si) {
-  document.getElementById(`bulk-${si}`).classList.toggle("open");
-}
-
-function importBulk(si) {
-  const raw = document.getElementById(`bulk-ta-${si}`).value.trim();
+function importBulkManual() {
+  const raw = document.getElementById("bulk-manual-ta").value.trim();
   if (!raw) return;
-
-  const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
-  const existingCount = sections[si].chapters.length;
-
-  lines.forEach((line, idx) => {
+  const existing = manualChapters.length;
+  raw.split("\n").map(l => l.trim()).filter(Boolean).forEach((line, idx) => {
     const pipe = line.indexOf("|");
     let title, url;
     if (pipe !== -1) {
       title = line.slice(0, pipe).trim();
-      url   = line.slice(pipe + 1).trim();
+      url = line.slice(pipe + 1).trim();
     } else {
-      url   = line.trim();
-      title = `Chapter ${existingCount + idx + 1}`;
+      url = line;
+      title = `Chapter ${existing + idx + 1}`;
     }
-    sections[si].chapters.push({ title, url });
+    manualChapters.push({ title, url });
   });
-
-  document.getElementById(`bulk-ta-${si}`).value = "";
-  document.getElementById(`bulk-${si}`).classList.remove("open");
-  renderSections();
+  document.getElementById("bulk-manual-ta").value = "";
+  document.getElementById("bulk-manual").classList.remove("open");
+  renderManualChapters();
 }
 
-// ── Build ──────────────────────────────────────────────────────────────────
-function startBuild() {
-  const title    = document.getElementById("title").value.trim();
-  const author   = document.getElementById("author").value.trim();
-  const summary  = document.getElementById("summary").value.trim();
-  const selector = document.getElementById("selector").value.trim() || "div.entry-content";
-  const delay    = parseFloat(document.getElementById("delay").value) || 1.5;
+// ── Stage 2: Section management ────────────────────────────────────────────
+function addBuildSection(heading = "", subtitle = "", toc_label = "", chapterCount = 0) {
+  const idx = buildSections.length + 1;
+  if (!heading) heading = idx === 1 ? "Main Story" : `Section ${idx}`;
+  if (!toc_label) toc_label = heading;
 
-  if (!title)  return alert("Please enter a title.");
-  if (!author) return alert("Please enter an author.");
+  // Auto-allocate remaining unassigned chapters if cache is loaded
+  if (!chapterCount && totalCacheChapters > 0) {
+    const assigned = buildSections.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
+    chapterCount = Math.max(1, totalCacheChapters - assigned);
+  } else if (!chapterCount) {
+    chapterCount = 10;
+  }
 
-  const hasChapters = sections.some(s => s.chapters.some(c => c.url));
-  if (!hasChapters) return alert("Add at least one chapter URL.");
+  buildSections.push({ heading, subtitle, toc_label, chapterCount });
+  renderBuildSections();
+}
 
-  // Read chapter inputs directly from the DOM (in case oninput was missed)
-  sections.forEach((sec, si) => {
-    sec.chapters.forEach((ch, ci) => {
-      const row = document.getElementById(`ch-row-${si}-${ci}`);
-      if (!row) return;
-      const [titleIn, urlIn] = row.querySelectorAll("input");
-      ch.title = titleIn.value.trim() || `Chapter ${ci + 1}`;
-      ch.url   = urlIn.value.trim();
-    });
+function removeBuildSection(si) {
+  if (buildSections.length <= 1) return;
+  buildSections.splice(si, 1);
+  renderBuildSections();
+}
+
+function updateBuildSection(si, key, val) {
+  buildSections[si][key] = val;
+  updateSectionRanges();
+}
+
+function renderBuildSections() {
+  const area = document.getElementById("build-sections-area");
+  area.innerHTML = "";
+  buildSections.forEach((sec, si) => {
+    const el = document.createElement("div");
+    el.className = "section-block";
+    el.innerHTML = `
+      <div class="section-header" onclick="toggleBuildSection(${si})">
+        <span class="section-label" id="bsec-label-${si}">${esc(sec.heading) || "Untitled"}</span>
+        <span class="section-count" id="bsec-range-badge-${si}"></span>
+        ${buildSections.length > 1 ? `<button class="btn-icon" style="color:var(--warn); margin-right:4px;" onclick="event.stopPropagation(); removeBuildSection(${si})" title="Remove section">✕</button>` : ""}
+        <span class="section-toggle" id="bsec-toggle-${si}">▲</span>
+      </div>
+      <div class="section-body open" id="bsec-body-${si}">
+        <div class="section-meta">
+          <div class="field" style="margin:0">
+            <label>Heading</label>
+            <input type="text" value="${esc(sec.heading)}" placeholder="Main Story"
+                   oninput="secHeadingChanged(${si}, this.value)">
+          </div>
+          <div class="field" style="margin:0">
+            <label>TOC label</label>
+            <input type="text" value="${esc(sec.toc_label)}" placeholder="Main Story"
+                   oninput="updateBuildSection(${si},'toc_label',this.value)">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Subtitle</label>
+            <input type="text" value="${esc(sec.subtitle)}" placeholder="optional"
+                   oninput="updateBuildSection(${si},'subtitle',this.value)">
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Chapter count <span style="font-weight:300;color:var(--text-dim)">(number of chapters in this section)</span></label>
+          <input type="number" id="bsec-count-${si}" value="${sec.chapterCount}" min="1"
+                 oninput="updateBuildSection(${si},'chapterCount',Math.max(1, +this.value || 1))">
+          <div class="bulk-hint" id="bsec-range-desc-${si}" style="margin-top:4px;"></div>
+        </div>
+      </div>`;
+    area.appendChild(el);
+  });
+  updateSectionRanges();
+}
+
+function secHeadingChanged(si, val) {
+  buildSections[si].heading = val;
+  const label = document.getElementById(`bsec-label-${si}`);
+  if (label) label.textContent = val || "Untitled";
+}
+
+function toggleBuildSection(si) {
+  document.getElementById(`bsec-body-${si}`).classList.toggle("open");
+  document.getElementById(`bsec-toggle-${si}`).classList.toggle("open");
+}
+
+function updateSectionRanges() {
+  let currentCh = 1;
+  let totalAssigned = 0;
+
+  buildSections.forEach((sec, si) => {
+    const count = sec.chapterCount || 0;
+    const start = currentCh;
+    const end = currentCh + count - 1;
+    currentCh += count;
+    totalAssigned += count;
+
+    const badge = document.getElementById(`bsec-range-badge-${si}`);
+    const desc = document.getElementById(`bsec-range-desc-${si}`);
+    const rangeStr = count > 0 ? `${count} ch (Ch. ${start} – ${end})` : `0 ch`;
+    if (badge) badge.textContent = rangeStr;
+    if (desc) desc.innerHTML = count > 0 ? `Assigned: <strong>Chapters ${start} to ${end}</strong> (${count} total)` : `No chapters assigned`;
   });
 
+  const alloc = document.getElementById("build-alloc-status");
+  const badge = document.getElementById("build-total-badge");
+  if (totalCacheChapters > 0) {
+    badge.textContent = `${totalCacheChapters} chapters in cache`;
+    if (totalAssigned === totalCacheChapters) {
+      alloc.innerHTML = `<span style="color:var(--sage)">✓ All ${totalCacheChapters} chapters assigned</span>`;
+    } else if (totalAssigned < totalCacheChapters) {
+      const rem = totalCacheChapters - totalAssigned;
+      alloc.innerHTML = `<span style="color:var(--warn)">${rem} chapter${rem>1?"s":""} unassigned (${totalAssigned} / ${totalCacheChapters})</span>`;
+    } else {
+      const diff = totalAssigned - totalCacheChapters;
+      alloc.innerHTML = `<span style="color:var(--warn)">Assigned chapters (${totalAssigned}) exceed cache by ${diff}</span>`;
+    }
+  } else {
+    badge.textContent = "";
+    alloc.textContent = `Total assigned: ${totalAssigned} chapters`;
+  }
+}
+
+// Init Stage 2 with one default section
+addBuildSection();
+
+function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+// ── File upload & caching ──────────────────────────────────────────────────
+function onFileChosen(input) {
+  if (!input.files.length) return;
+  onCacheFileLoaded(input.files[0]);
+}
+
+function onDragOver(e)  { e.preventDefault(); document.getElementById("upload-zone").classList.add("dragover"); }
+function onDragLeave(e) { document.getElementById("upload-zone").classList.remove("dragover"); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("upload-zone").classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith(".json")) {
+    onCacheFileLoaded(file);
+  }
+}
+
+function onCacheFileLoaded(file) {
+  chosenFile = file;
+  const label = document.getElementById("file-chosen");
+  label.textContent = "✓ " + file.name;
+  label.classList.add("visible");
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const count = Object.keys(data).length;
+      totalCacheChapters = count;
+      label.textContent = `✓ ${file.name} (${count} chapters)`;
+
+      // If only 1 section exists and it's at default/zero count, set it to total
+      if (buildSections.length === 1 && (buildSections[0].chapterCount === 0 || buildSections[0].chapterCount === 10)) {
+        buildSections[0].chapterCount = count;
+        const inEl = document.getElementById("bsec-count-0");
+        if (inEl) inEl.value = count;
+      }
+      updateSectionRanges();
+    } catch (err) {
+      console.error("Failed to parse cache JSON", err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Stage 1: Scrape ────────────────────────────────────────────────────────
+function startScrape() {
+  const title    = document.getElementById("s-title").value.trim();
+  const selector = document.getElementById("s-selector").value.trim() || "div.entry-content";
+  const delay    = parseFloat(document.getElementById("s-delay").value) || 1.5;
+
+  if (!title) return alert("Please enter a title (used to name the JSON file).");
+
   const payload = {
-    title, author,
-    summary_html:     summary,
+    title,
     content_selector: selector,
-    delay_seconds:    delay,
-    sections: sections.map(sec => ({
-      heading:   sec.heading,
-      toc_label: sec.toc_label,
-      subtitle:  sec.subtitle,
-      chapters:  sec.chapters.filter(c => c.url),
-    })).filter(s => s.chapters.length > 0),
+    delay_seconds: delay,
+    mode: scrapeMode,
   };
 
-  document.getElementById("build-btn").disabled = true;
-  if (currentEventSource) currentEventSource.close();
+  if (scrapeMode === "chain") {
+    const startUrl = document.getElementById("s-chain-start").value.trim();
+    const nextSelector = document.getElementById("s-next-selector").value.trim();
+    const count = parseInt(document.getElementById("s-chain-count").value, 10);
+    const prefix = document.getElementById("s-chain-prefix").value.trim() || "Chapter";
 
-  // Reset progress UI
-  document.getElementById("progress-panel").classList.add("visible");
-  document.getElementById("done-banner").classList.remove("visible");
-  document.getElementById("p-log").innerHTML = "";
-  document.getElementById("p-bar").style.width = "0%";
-  document.getElementById("p-fraction").textContent = "";
-  document.getElementById("p-status").textContent = "Starting…";
-  document.getElementById("p-chapter").textContent = "";
+    if (!startUrl) return alert("Please enter the first chapter URL.");
+    if (!nextSelector) return alert("Please enter the next-chapter link selector (or use Analyze page).");
+    if (!count || count < 1) return alert("Please enter the number of chapters to scrape.");
 
-  fetch("/api/build", {
+    payload.start_url = startUrl;
+    payload.next_url_selector = nextSelector;
+    payload.count = count;
+    payload.chapter_prefix = prefix;
+  } else {
+    const validChapters = manualChapters.filter(c => c.url.trim());
+    if (!validChapters.length) return alert("Add at least one chapter with a valid URL.");
+    payload.chapters = validChapters;
+  }
+
+  document.getElementById("scrape-btn").disabled = true;
+  if (currentES) currentES.close();
+
+  const prog = document.getElementById("scrape-progress");
+  prog.classList.add("visible");
+  document.getElementById("scrape-done").classList.remove("visible");
+  document.getElementById("sp-log").innerHTML = "";
+  document.getElementById("sp-bar").style.width = "0%";
+  document.getElementById("sp-fraction").textContent = "";
+  document.getElementById("sp-status").textContent = "Starting…";
+  document.getElementById("sp-chapter").textContent = "";
+
+  fetch("/api/scrape", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),
   })
   .then(r => r.json())
-  .then(data => {
-    currentJobId = data.job_id;
-    listenProgress(currentJobId);
-  })
-  .catch(err => {
-    log(`Error starting build: ${err}`, "err");
-    document.getElementById("build-btn").disabled = false;
-  });
+  .then(data => { scrapeJobId = data.job_id; listenProgress(data.job_id, "scrape"); })
+  .catch(err => { slog(`Error: ${err}`, "log-err"); document.getElementById("scrape-btn").disabled = false; });
 }
 
-function listenProgress(jobId) {
+function downloadJson() {
+  if (scrapeJobId) window.location.href = `/api/download-json/${scrapeJobId}`;
+}
+
+// ── Stage 2: Build ─────────────────────────────────────────────────────────
+function startBuild() {
+  const title  = document.getElementById("b-title").value.trim();
+  const author = document.getElementById("b-author").value.trim();
+  const summary= document.getElementById("b-summary").value.trim();
+
+  if (!title)  return alert("Please enter a title.");
+  if (!author) return alert("Please enter an author.");
+  if (!chosenFile) return alert("Please upload your cache JSON file.");
+  if (!buildSections.length) return alert("Add at least one section.");
+
+  const sectionsPayload = buildSections.map(sec => ({
+    heading:       sec.heading || "Main Story",
+    toc_label:     sec.toc_label || sec.heading || "Main Story",
+    subtitle:      sec.subtitle || "",
+    chapter_count: sec.chapterCount || 0,
+  }));
+
+  const config = {
+    title,
+    author,
+    summary_html: summary,
+    sections: sectionsPayload,
+  };
+
+  const formData = new FormData();
+  formData.append("config", JSON.stringify(config));
+  formData.append("cache_file", chosenFile);
+
+  document.getElementById("build-btn").disabled = true;
+  if (currentES) currentES.close();
+
+  const prog = document.getElementById("build-progress");
+  prog.classList.add("visible");
+  document.getElementById("build-done").classList.remove("visible");
+  document.getElementById("bp-log").innerHTML = "";
+  document.getElementById("bp-status").textContent = "Starting…";
+
+  fetch("/api/build", { method: "POST", body: formData })
+  .then(r => r.json())
+  .then(data => { buildJobId = data.job_id; listenProgress(data.job_id, "build"); })
+  .catch(err => { blog(`Error: ${err}`, "log-err"); document.getElementById("build-btn").disabled = false; });
+}
+
+function downloadEpub() {
+  if (buildJobId) window.location.href = `/api/download-epub/${buildJobId}`;
+}
+
+// ── SSE progress listener ──────────────────────────────────────────────────
+function listenProgress(jobId, stage) {
   const es = new EventSource(`/api/progress/${jobId}`);
-  currentEventSource = es;
+  currentES = es;
   let lastTitle = "";
+  let seenErrors = [];   // track errors already logged so we only show new ones
 
   es.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    const { status, progress, errors, epub_name } = data;
+    const { status, progress, errors, json_name, epub_name } = data;
 
-    // Status line
-    const statusMap = {
-      queued:   "Queued…",
-      scraping: "Scraping chapters…",
-      building: "Assembling EPUB…",
-      done:     "Done.",
-      error:    "Error",
-    };
-    document.getElementById("p-status").textContent = statusMap[status] || status;
+    const statusMap = { queued:"Queued…", scraping:"Scraping chapters…", building:"Assembling EPUB…", done:"Done.", error:"Error" };
 
-    if (status === "scraping" && progress.total > 0) {
-      const { current, total, title } = progress;
-      const pct = Math.round((current / total) * 100);
-      document.getElementById("p-bar").style.width = pct + "%";
-      document.getElementById("p-fraction").textContent = `${current} / ${total}`;
-
-      if (title && title !== lastTitle) {
-        lastTitle = title;
-        document.getElementById("p-chapter").textContent = title;
-
-        const cls = errors.includes(title) ? "log-err" : "log-ok";
-        const mark = errors.includes(title) ? "✕" : "✓";
-        log(`${mark}  ${title}`, cls);
+    if (stage === "scrape") {
+      document.getElementById("sp-status").textContent = statusMap[status] || status;
+      if (status === "scraping" && progress.total > 0) {
+        const { current, total, title } = progress;
+        document.getElementById("sp-bar").style.width = Math.round(current/total*100) + "%";
+        document.getElementById("sp-fraction").textContent = `${current} / ${total}`;
+        if (title && title !== lastTitle) {
+          lastTitle = title;
+          document.getElementById("sp-chapter").textContent = title;
+          // mark chapter as failed only if its exact title appears in errors[]
+          const failed = errors.some(e => e === title);
+          slog(`${failed?"✕":"✓"}  ${title}`, failed?"log-err":"log-ok");
+        }
       }
-    }
-
-    if (status === "building") {
-      document.getElementById("p-bar").style.width = "100%";
-      document.getElementById("p-chapter").textContent = "Building EPUB file…";
-      log("Building EPUB…", "info");
-    }
-
-    if (status === "done") {
-      document.getElementById("p-bar").style.width = "100%";
-      document.getElementById("p-chapter").textContent = "";
-      log("EPUB ready.", "log-ok");
-      document.getElementById("epub-name").textContent = epub_name;
-      document.getElementById("done-banner").classList.add("visible");
-      document.getElementById("build-btn").disabled = false;
-      es.close();
+      // Log any new chain-stop / warning messages that arrived since last tick
+      if (errors) {
+        errors.forEach(msg => {
+          if (!seenErrors.includes(msg)) {
+            seenErrors.push(msg);
+            // Only surface messages that look like chain diagnostics (start with "[")
+            if (msg.startsWith("[")) {
+              slog(msg, "log-err");
+            }
+          }
+        });
+      }
+      if (status === "done") {
+        document.getElementById("sp-bar").style.width = "100%";
+        document.getElementById("sp-chapter").textContent = "";
+        document.getElementById("json-name").textContent = json_name;
+        document.getElementById("scrape-done").classList.add("visible");
+        document.getElementById("scrape-btn").disabled = false;
+        es.close();
+      }
+    } else {
+      document.getElementById("bp-status").textContent = statusMap[status] || status;
+      if (status === "building") blog("Building EPUB…", "log-info");
+      if (status === "done") {
+        blog("EPUB ready.", "log-ok");
+        document.getElementById("epub-name").textContent = epub_name;
+        document.getElementById("build-done").classList.add("visible");
+        document.getElementById("build-btn").disabled = false;
+        es.close();
+      }
     }
   };
 
   es.onerror = () => {
-    log("Connection lost. Reload to check status.", "err");
-    document.getElementById("build-btn").disabled = false;
+    const fn = stage === "scrape" ? slog : blog;
+    fn("Connection lost. Reload to check status.", "log-err");
+    document.getElementById(stage === "scrape" ? "scrape-btn" : "build-btn").disabled = false;
     es.close();
   };
 }
 
-function log(msg, cls = "") {
-  const box = document.getElementById("p-log");
+function slog(msg, cls="") { _log("sp-log", msg, cls); }
+function blog(msg, cls="") { _log("bp-log", msg, cls); }
+function _log(id, msg, cls) {
+  const box = document.getElementById(id);
   const line = document.createElement("div");
   if (cls) line.className = cls;
   line.textContent = msg;
@@ -738,10 +899,107 @@ function log(msg, cls = "") {
   box.scrollTop = box.scrollHeight;
 }
 
-function downloadEpub() {
-  if (currentJobId) {
-    window.location.href = `/api/download/${currentJobId}`;
+// ── Auto-detect ────────────────────────────────────────────────────────────
+let lastDetectResult = null;
+
+function analyzePage() {
+  const url = document.getElementById('analyze-url').value.trim();
+  if (!url) return alert('Paste a chapter URL to analyze.');
+
+  const btn = document.getElementById('analyze-btn');
+  const btnText = document.getElementById('analyze-btn-text');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner"></span> Analyzing…';
+
+  // Hide previous results
+  document.getElementById('detect-results').classList.remove('visible');
+
+  fetch('/api/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ url }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    lastDetectResult = data;
+    showDetectResults(data);
+  })
+  .catch(err => {
+    alert('Analysis failed: ' + err);
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btnText.textContent = '⚡ Analyze page';
+  });
+}
+
+function showDetectResults(data) {
+  const panel = document.getElementById('detect-results');
+  panel.classList.add('visible');
+
+  // Confidence badge
+  const badge = document.getElementById('detect-badge');
+  badge.textContent = data.confidence;
+  badge.className = 'badge badge-' + data.confidence;
+
+  // Values
+  setDetectValue('detect-content', data.content_selector);
+  setDetectValue('detect-next', data.next_url_selector);
+  setDetectValue('detect-para', data.paragraph_style === 'unknown' ? '' : data.paragraph_style === 'p' ? '<p> tags' : '<br><br> breaks');
+  setDetectValue('detect-pattern', data.url_pattern || '');
+
+  // Warning
+  const warn = document.getElementById('detect-warn');
+  if (data.error) {
+    warn.textContent = data.error;
+    warn.style.display = 'block';
+  } else if (data.confidence === 'low') {
+    warn.textContent = '⚠ Low confidence — the detected selectors may be inaccurate. Please verify them manually before scraping.';
+    warn.style.display = 'block';
+  } else if (data.confidence === 'medium') {
+    warn.textContent = 'Moderate confidence — results look reasonable but you may want to double-check.';
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
   }
+}
+
+function setDetectValue(id, val) {
+  const el = document.getElementById(id);
+  if (val) {
+    el.textContent = val;
+    el.classList.remove('empty');
+  } else {
+    el.textContent = 'not detected';
+    el.classList.add('empty');
+  }
+}
+
+function applyDetected() {
+  if (!lastDetectResult) return;
+  const d = lastDetectResult;
+  if (d.content_selector) document.getElementById('s-selector').value = d.content_selector;
+  if (d.next_url_selector) document.getElementById('s-next-selector').value = d.next_url_selector;
+  // If analyze URL exists and chain start is empty, pre-fill it
+  const analyzeUrl = document.getElementById('analyze-url').value.trim();
+  const chainStart = document.getElementById('s-chain-start');
+  if (analyzeUrl && chainStart && !chainStart.value) {
+    chainStart.value = analyzeUrl;
+  }
+  // Brief highlight effect on the filled fields
+  ['s-selector', 's-next-selector', 's-chain-start'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.value) {
+      el.style.borderColor = 'var(--sage)';
+      el.style.transition = 'border-color 0.3s';
+      setTimeout(() => { el.style.borderColor = ''; }, 1500);
+    }
+  });
+}
+
+function dismissDetected() {
+  document.getElementById('detect-results').classList.remove('visible');
+  lastDetectResult = null;
 }
 </script>
 </body>
