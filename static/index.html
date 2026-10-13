@@ -180,8 +180,15 @@
   ::-webkit-scrollbar-track { background: var(--ink); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
-  @media (max-width: 520px) {
+  @media (max-width: 600px) {
+    .shell { padding: 24px 16px 64px; }
+    .header h1 { font-size: 26px; }
+    .header-icon { width: 40px; height: 40px; border-radius: 10px; }
     .row-2, .section-meta { grid-template-columns: 1fr; }
+    .detect-grid { grid-template-columns: 1fr; }
+    .analyze-row { flex-direction: column; align-items: stretch; }
+    .analyze-row .field { width: 100%; }
+    .btn-analyze { width: 100%; justify-content: center; height: 38px; }
     .stage-tab .tab-num { display: none; }
   }
 
