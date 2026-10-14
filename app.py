@@ -16,20 +16,26 @@ Run:
 import asyncio
 import html as html_module
 import json
+import logging
 import re
 import tempfile
+import time
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import AsyncGenerator
 
 import cloudscraper
 from bs4 import BeautifulSoup
+from curl_cffi import requests as cffi_requests
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from epub_builder import BookConfig, Section, build_epub
+
+log = logging.getLogger(__name__)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -87,17 +93,141 @@ class BuildRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def fetch_html(url: str) -> str | None:
+# Cloudflare challenge markers in response bodies/headers.
+_CF_CHALLENGE_MARKERS = (
+    "challenges.cloudflare.com",
+    "cf-challenge",
+    "Just a moment",
+    "Checking your browser",
+    "Verifying you are human",
+)
+
+
+@dataclass
+class _FetchResult:
+    """Structured result from fetch_html_detailed."""
+    html: str | None = None
+    ok: bool = False
+    status_code: int = 0
+    is_cloudflare_challenge: bool = False
+    error_type: str = ""    # "cloudflare", "http", "connection", ""
+    error_detail: str = ""
+
+
+def _is_cloudflare_challenge(response) -> bool:
+    """Detect whether a response is a Cloudflare managed/JS challenge page."""
+    if response.headers.get("Cf-Mitigated") == "challenge":
+        return True
+    if response.headers.get("Server", "").lower() == "cloudflare" and response.status_code == 403:
+        body_sample = response.text[:3000] if hasattr(response, "text") else ""
+        return any(marker in body_sample for marker in _CF_CHALLENGE_MARKERS)
+    return False
+
+
+def _try_cloudscraper(url: str, timeout: int = 20):
+    """Attempt fetch with cloudscraper. Returns (response, error_str)."""
     try:
-        r = SCRAPER.get(url, timeout=20)
-        r.raise_for_status()
-        # Let charset-normalizer / chardet detect the real encoding from the
-        # raw bytes — the server often omits the charset header, causing
-        # requests to default to ISO-8859-1 and garble CJK text.
-        r.encoding = r.apparent_encoding
-        return r.text
-    except Exception:
-        return None
+        r = SCRAPER.get(url, timeout=timeout)
+        return r, None
+    except Exception as e:
+        return None, str(e)
+
+
+def _try_curl_cffi(url: str, timeout: int = 20):
+    """Attempt fetch with curl_cffi (better TLS fingerprint). Returns (response, error_str)."""
+    try:
+        r = cffi_requests.get(url, timeout=timeout, impersonate="chrome")
+        return r, None
+    except Exception as e:
+        return None, str(e)
+
+
+def fetch_html_detailed(
+    url: str,
+    *,
+    max_retries: int = 3,
+    backoff_base: float = 2.0,
+) -> _FetchResult:
+    """
+    Robust HTML fetcher with retry, backoff, and curl_cffi fallback.
+
+    Strategy per attempt:
+      1. Try cloudscraper (handles old-style CF JS challenges).
+      2. If that returns a Cloudflare challenge or fails, try curl_cffi
+         (better TLS fingerprint, may bypass some bot-detection).
+      3. If still a CF challenge, classify and report clearly.
+    """
+    last_result = _FetchResult()
+
+    for attempt in range(max_retries):
+        if attempt > 0:
+            delay = backoff_base ** attempt
+            log.debug("fetch_html retry %d for %s (backoff %.1fs)", attempt, url, delay)
+            time.sleep(delay)
+
+        # ── Try cloudscraper first ────────────────────────────────────
+        resp, err = _try_cloudscraper(url)
+        if resp is not None:
+            if resp.ok and not _is_cloudflare_challenge(resp):
+                resp.encoding = resp.apparent_encoding
+                return _FetchResult(html=resp.text, ok=True, status_code=resp.status_code)
+
+            if _is_cloudflare_challenge(resp):
+                # Don't give up yet — try curl_cffi
+                pass
+            elif not resp.ok:
+                last_result = _FetchResult(
+                    status_code=resp.status_code,
+                    error_type="http",
+                    error_detail=f"HTTP {resp.status_code}",
+                )
+                continue  # retry
+
+        # ── Try curl_cffi as fallback ─────────────────────────────────
+        resp2, err2 = _try_curl_cffi(url)
+        if resp2 is not None:
+            if resp2.ok and not _is_cloudflare_challenge(resp2):
+                return _FetchResult(html=resp2.text, ok=True, status_code=resp2.status_code)
+
+            if _is_cloudflare_challenge(resp2):
+                last_result = _FetchResult(
+                    status_code=resp2.status_code,
+                    is_cloudflare_challenge=True,
+                    error_type="cloudflare",
+                    error_detail=(
+                        "Cloudflare Managed Challenge / Turnstile detected. "
+                        "This site requires a real browser to solve the challenge "
+                        "and cannot be fetched by automated tools."
+                    ),
+                )
+                # Cloudflare challenges are deterministic — retrying won't help
+                return last_result
+            elif not resp2.ok:
+                last_result = _FetchResult(
+                    status_code=resp2.status_code,
+                    error_type="http",
+                    error_detail=f"HTTP {resp2.status_code}",
+                )
+                continue  # retry
+
+        # Both clients failed to even connect
+        if resp is None and resp2 is None:
+            last_result = _FetchResult(
+                error_type="connection",
+                error_detail=err or err2 or "Connection failed",
+            )
+
+    return last_result
+
+
+def fetch_html(url: str) -> str | None:
+    """
+    Backward-compatible wrapper: returns HTML string or None.
+
+    For richer error info, use fetch_html_detailed() directly.
+    """
+    result = fetch_html_detailed(url)
+    return result.html if result.ok else None
 
 
 def _parse_selector(soup: BeautifulSoup, selector: str):
@@ -114,17 +244,123 @@ def _parse_selector(soup: BeautifulSoup, selector: str):
         return soup.find(selector or "div")
 
 
+# ── Next.js RSC (React Server Components) extraction ─────────────────────
+
+def _is_nextjs_page(html: str) -> bool:
+    """Detect whether the HTML is a Next.js App Router page with RSC data."""
+    return "self.__next_f" in html and "/_next/static/chunks/" in html
+
+
+def _extract_rsc_payloads(html: str) -> list[str]:
+    """Extract all decoded RSC payload strings from __next_f.push calls."""
+    raw_payloads = re.findall(r'self\.__next_f\.push\(\[1,(.+?)\]\)<', html)
+    decoded = []
+    for raw in raw_payloads:
+        try:
+            decoded.append(json.loads(raw))
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return decoded
+
+
+def _extract_rsc_html_content(html: str) -> str | None:
+    """
+    Extract chapter body HTML from a Next.js RSC data stream.
+
+    Next.js App Router embeds server-rendered data in inline scripts as
+    `self.__next_f.push([1, "..."])` calls. The chapter content is typically
+    a raw HTML blob (with <p> tags) referenced by a `"content":"$ref"` field
+    in the RSC component tree.
+
+    Strategy:
+      1. Find the payload with the most <p> tags (likely chapter body).
+      2. Verify it has substantial text content (not just metadata).
+    """
+    payloads = _extract_rsc_payloads(html)
+    if not payloads:
+        return None
+
+    best_html = None
+    best_p_count = 0
+
+    for payload in payloads:
+        if not isinstance(payload, str):
+            continue
+        # Count <p> tags as a proxy for "this is chapter content"
+        p_count = payload.count("<p>") + payload.count("<p ")
+        if p_count >= 3 and p_count > best_p_count:
+            # Verify it has actual text, not just empty <p><br /></p>
+            text_sample = re.sub(r"<[^>]+>", "", payload)
+            text_sample = text_sample.strip()
+            if len(text_sample) > 200:
+                best_html = payload
+                best_p_count = p_count
+
+    return best_html
+
+
+def _extract_rsc_navigation(html: str) -> dict:
+    """
+    Extract navigation info (next/prev chapter slugs, novel slug) from
+    Next.js RSC payloads.
+
+    Returns dict with keys: next_chapter_slug, prev_chapter_slug, novel_slug
+    """
+    payloads = _extract_rsc_payloads(html)
+    result = {}
+
+    for payload in payloads:
+        if not isinstance(payload, str):
+            continue
+        # Look for nextChapterSlug / prevChapterSlug in the RSC tree
+        next_match = re.search(r'"nextChapterSlug"\s*:\s*"([^"]+)"', payload)
+        prev_match = re.search(r'"prevChapterSlug"\s*:\s*"([^"]+)"', payload)
+        novel_match = re.search(r'"novelSlug"\s*:\s*"([^"]+)"', payload)
+
+        if next_match:
+            result["next_chapter_slug"] = next_match.group(1)
+        if prev_match:
+            result["prev_chapter_slug"] = prev_match.group(1)
+        if novel_match:
+            result["novel_slug"] = novel_match.group(1)
+
+    return result
+
+
 def extract_body(html: str, selector: str) -> str:
     """
     Extract chapter body from a fetched page.
 
-    Handles two common formats:
+    Handles three common formats:
       - <p> tags (most WordPress / English TL sites)
       - <br><br> paragraph breaks (most Chinese novel sites)
+      - Next.js RSC data streams (modern JS-rendered sites)
 
     Also strips injected <script> and <ins> ad tags from the container.
     """
     soup = BeautifulSoup(html, "html.parser")
+
+    # ── Strategy 0: Next.js RSC extraction ────────────────────────────
+    # Try this first if the page is a Next.js app, since the DOM body
+    # will be empty (content lives in inline script payloads).
+    if _is_nextjs_page(html):
+        rsc_html = _extract_rsc_html_content(html)
+        if rsc_html:
+            # The RSC content is raw HTML — parse and clean it
+            rsc_soup = BeautifulSoup(rsc_html, "html.parser")
+            for junk in rsc_soup.find_all(["script", "ins", "iframe", "style"]):
+                junk.decompose()
+            p_tags = rsc_soup.find_all("p")
+            if p_tags:
+                paragraphs = []
+                for p in p_tags:
+                    text = p.get_text(separator=" ").strip()
+                    text = re.sub(r"\s{2,}", " ", text)
+                    if text and text != "\u00a0":
+                        paragraphs.append(f"<p>{text}</p>")
+                if paragraphs:
+                    return "\n".join(paragraphs)
+
     container = _parse_selector(soup, selector)
 
     if not container:
@@ -284,15 +520,65 @@ def analyze_page(url: str) -> dict:
     """
     from urllib.parse import urljoin
 
-    html = fetch_html(url)
-    if not html:
+    result = fetch_html_detailed(url)
+    if not result.ok:
+        error_msg = {
+            "cloudflare": (
+                "Cloudflare Managed Challenge / Turnstile detected. "
+                "This site requires solving an interactive browser challenge "
+                "that automated tools cannot bypass."
+            ),
+            "http": f"The server returned HTTP {result.status_code}.",
+            "connection": f"Could not connect to the site: {result.error_detail}",
+        }.get(
+            result.error_type,
+            "Failed to fetch the page. The site may be blocking requests or require JavaScript.",
+        )
         return {
             "content_selector": "",
             "next_url_selector": "",
             "paragraph_style": "unknown",
             "confidence": "low",
-            "error": "Failed to fetch the page. The site may be blocking requests or require JavaScript.",
+            "error": error_msg,
+            "error_type": result.error_type,
         }
+
+    html = result.html
+
+    # ── Fast-path: Next.js RSC page ──────────────────────────────────────
+    # Next.js App Router pages have an empty DOM body — all content lives
+    # in inline `self.__next_f.push` scripts.  The normal container-scoring
+    # heuristics will fail, so we use the RSC extraction directly.
+    if _is_nextjs_page(html):
+        rsc_html = _extract_rsc_html_content(html)
+        nav = _extract_rsc_navigation(html)
+
+        rsc_result = {
+            "content_selector": "__nextjs_rsc",
+            "paragraph_style": "p",
+            "confidence": "high" if rsc_html else "low",
+            "site_type": "nextjs",
+        }
+
+        if not rsc_html:
+            rsc_result["error"] = (
+                "Next.js page detected but could not extract chapter content "
+                "from the RSC data stream."
+            )
+            rsc_result["confidence"] = "low"
+
+        # Build next URL from RSC navigation data
+        if nav.get("next_chapter_slug") and nav.get("novel_slug"):
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            # Build the next chapter URL using the same base path pattern
+            next_url = f"{parsed.scheme}://{parsed.netloc}/novels/{nav['novel_slug']}/{nav['next_chapter_slug']}"
+            rsc_result["next_url_selector"] = "__nextjs_rsc"
+            rsc_result["next_url"] = next_url
+        else:
+            rsc_result["next_url_selector"] = ""
+
+        return rsc_result
 
     soup = BeautifulSoup(html, "html.parser")
 
@@ -552,9 +838,21 @@ def extract_next_url(html: str, selector: str, base_url: str) -> str | None:
     _best_anchor_from_container() which picks the most-likely "next" link
     rather than blindly taking the first <a> (which could be "Previous").
 
+    Special case: selector "__nextjs_rsc" extracts navigation from the
+    Next.js RSC data stream embedded in inline scripts.
+
     Returns an absolute URL, or None if not found.
     """
-    from urllib.parse import urljoin
+    from urllib.parse import urljoin, urlparse
+
+    # ── Next.js RSC navigation ────────────────────────────────────────
+    if selector == "__nextjs_rsc" and _is_nextjs_page(html):
+        nav = _extract_rsc_navigation(html)
+        if nav.get("next_chapter_slug") and nav.get("novel_slug"):
+            parsed = urlparse(base_url)
+            return f"{parsed.scheme}://{parsed.netloc}/novels/{nav['novel_slug']}/{nav['next_chapter_slug']}"
+        return None
+
     soup = BeautifulSoup(html, "html.parser")
 
     # Parse simple selectors: "tag.class", "tag#id", "#id", "tag"

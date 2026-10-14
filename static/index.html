@@ -244,6 +244,14 @@
     background: rgba(201,122,90,.1); border: 1px solid rgba(201,122,90,.2);
     font-size: 11px; color: var(--warn); line-height: 1.5;
   }
+  .detect-warn.cloudflare {
+    background: rgba(220,80,60,.1); border-color: rgba(220,80,60,.25);
+    color: #e05545;
+  }
+  .detect-warn.connection {
+    background: rgba(180,80,80,.1); border-color: rgba(180,80,80,.25);
+    color: #c06050;
+  }
   .detect-actions {
     margin-top: 12px; display: flex; gap: 8px;
   }
@@ -969,22 +977,39 @@ function showDetectResults(data) {
   badge.textContent = data.confidence;
   badge.className = 'badge badge-' + data.confidence;
 
-  // Values
-  setDetectValue('detect-content', data.content_selector);
-  setDetectValue('detect-next', data.next_url_selector);
+  // Values — translate __nextjs_rsc pseudo-selectors for display
+  const contentLabel = data.content_selector === '__nextjs_rsc'
+    ? 'Next.js RSC (auto)' : data.content_selector;
+  const nextLabel = data.next_url_selector === '__nextjs_rsc'
+    ? 'Next.js RSC (auto)' : data.next_url_selector;
+
+  setDetectValue('detect-content', contentLabel);
+  setDetectValue('detect-next', nextLabel);
   setDetectValue('detect-para', data.paragraph_style === 'unknown' ? '' : data.paragraph_style === 'p' ? '<p> tags' : '<br><br> breaks');
   setDetectValue('detect-pattern', data.url_pattern || '');
 
   // Warning
   const warn = document.getElementById('detect-warn');
+  warn.classList.remove('cloudflare', 'connection');
   if (data.error) {
-    warn.textContent = data.error;
+    if (data.error_type === 'cloudflare') {
+      warn.innerHTML = '🛡️ ' + data.error;
+      warn.classList.add('cloudflare');
+    } else if (data.error_type === 'connection') {
+      warn.innerHTML = '🔌 ' + data.error;
+      warn.classList.add('connection');
+    } else {
+      warn.innerHTML = '⚠️ ' + data.error;
+    }
+    warn.style.display = 'block';
+  } else if (data.site_type === 'nextjs') {
+    warn.innerHTML = '⚡ Next.js site detected — content is extracted from the React Server Components data stream. Selectors are handled automatically.';
     warn.style.display = 'block';
   } else if (data.confidence === 'low') {
-    warn.textContent = '⚠ Low confidence — the detected selectors may be inaccurate. Please verify them manually before scraping.';
+    warn.innerHTML = '⚠ Low confidence — the detected selectors may be inaccurate. Please verify them manually before scraping.';
     warn.style.display = 'block';
   } else if (data.confidence === 'medium') {
-    warn.textContent = 'Moderate confidence — results look reasonable but you may want to double-check.';
+    warn.innerHTML = 'Moderate confidence — results look reasonable but you may want to double-check.';
     warn.style.display = 'block';
   } else {
     warn.style.display = 'none';
