@@ -1137,6 +1137,10 @@
           <label>Summary (HTML allowed)</label>
           <textarea id="b-summary" placeholder="<p>A short blurb about the book…</p>"></textarea>
         </div>
+        <div class="field">
+          <label>Paragraph indent <span style="color:var(--text-dim);font-weight:300">— first-line indent per paragraph (e.g. 1.3rem, 2em, 0 to disable)</span></label>
+          <input id="b-indent" type="text" value="1.3rem" placeholder="1.3rem">
+        </div>
       </div>
 
       <div class="card">
@@ -1545,6 +1549,7 @@
         title,
         author,
         summary_html: summary,
+        paragraph_indent: (document.getElementById('b-indent').value.trim() || '1.3rem'),
         sections: sectionsPayload,
       };
 

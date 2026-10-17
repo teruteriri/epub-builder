@@ -57,6 +57,7 @@ class BookConfig:
     summary_html: str             = ""
     identifier: str               = ""
     language: str                 = "en"
+    paragraph_indent: str         = "1.3rem"
 
 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
@@ -80,119 +81,127 @@ def save_cache(path: Path, cache: dict) -> None:
 # ── Stylesheet ────────────────────────────────────────────────────────────────
 
 # Delivered as a linked CSS file so ebooklib never strips it.
-_CSS = """\
-@font-face {
+def _make_css(has_fonts: bool, indent: str = "1.3rem") -> str:
+    """
+    Build the chapter stylesheet.
+
+    ``indent`` controls the first-line paragraph indent (e.g. "1.3rem",
+    "2em", "0").  Pass "0" to disable indentation entirely.
+    """
+    if has_fonts:
+        return f"""\
+@font-face {{
     font-family: 'BookFont';
     src: url('../fonts/regular.ttf');
     font-weight: normal;
     font-style: normal;
-}
-@font-face {
+}}
+@font-face {{
     font-family: 'BookFont';
     src: url('../fonts/bold.ttf');
     font-weight: bold;
     font-style: normal;
-}
-@font-face {
+}}
+@font-face {{
     font-family: 'BookFont';
     src: url('../fonts/italic.ttf');
     font-weight: normal;
     font-style: italic;
-}
+}}
 
-body {
+body {{
     font-family: 'BookFont', Georgia, serif;
     font-size: 1em;
     line-height: 1.75;
     margin: 1.5em 1.5em;
     color: #1a1a1a;
-}
+}}
 
-h1 {
+h1 {{
     font-size: 1.6em;
     font-weight: bold;
     margin-top: 2em;
     margin-bottom: 0.4em;
     line-height: 1.2;
-}
+}}
 
-h2 {
+h2 {{
     font-size: 1.15em;
     font-weight: normal;
     font-style: italic;
     margin-top: 0.3em;
     margin-bottom: 2em;
     color: #555;
-}
+}}
 
-h3 {
+h3 {{
     font-size: 1.1em;
     font-weight: bold;
     margin-top: 1.8em;
     margin-bottom: 0.5em;
-}
+}}
 
-p {
+p {{
     margin: 0;
-    text-indent: 1.5em;
-}
+    text-indent: {indent};
+}}
 
 p:first-of-type,
 h1 + p,
 h2 + p,
-h3 + p {
+h3 + p {{
     text-indent: 0;
-}
+}}
 
-.chapter-title {
+.chapter-title {{
     text-indent: 0;
     font-size: 1.2em;
     font-weight: bold;
     margin-top: 2em;
     margin-bottom: 1.5em;
     text-align: center;
-}
+}}
 
 /* Summary / blurb page */
-.summary-page p {
+.summary-page p {{
     text-indent: 0;
     margin-bottom: 0.8em;
-}
+}}
 
 /* Section divider page */
-.section-page {
+.section-page {{
     text-align: center;
     margin-top: 30%;
-}
-.section-page h1 {
+}}
+.section-page h1 {{
     margin-bottom: 0.3em;
-}
-.section-page h2 {
+}}
+.section-page h2 {{
     margin-top: 0;
-}
+}}
 """
-
-_CSS_NO_FONTS = """\
-body {
+    else:
+        return f"""\
+body {{
     font-family: Georgia, serif;
     font-size: 1em;
     line-height: 1.75;
     margin: 1.5em 1.5em;
     color: #1a1a1a;
-}
+}}
 
-h1 { font-size: 1.6em; font-weight: bold; margin-top: 2em; margin-bottom: 0.4em; line-height: 1.2; }
-h2 { font-size: 1.15em; font-weight: normal; font-style: italic; margin-top: 0.3em; margin-bottom: 2em; color: #555; }
-h3 { font-size: 1.1em; font-weight: bold; margin-top: 1.8em; margin-bottom: 0.5em; }
+h1 {{ font-size: 1.6em; font-weight: bold; margin-top: 2em; margin-bottom: 0.4em; line-height: 1.2; }}
+h2 {{ font-size: 1.15em; font-weight: normal; font-style: italic; margin-top: 0.3em; margin-bottom: 2em; color: #555; }}
+h3 {{ font-size: 1.1em; font-weight: bold; margin-top: 1.8em; margin-bottom: 0.5em; }}
 
-p { margin: 0; text-indent: 1.5em; }
-p:first-of-type, h1 + p, h2 + p, h3 + p { text-indent: 0; }
+p {{ margin: 0; text-indent: {indent}; }}
+p:first-of-type, h1 + p, h2 + p, h3 + p {{ text-indent: 0; }}
 
-.chapter-title { text-indent: 0; font-size: 1.2em; font-weight: bold; margin-top: 2em; margin-bottom: 1.5em; text-align: center; }
-.summary-page p { text-indent: 0; margin-bottom: 0.8em; }
-.section-page { text-align: center; margin-top: 30%; }
-.section-page h1 { margin-bottom: 0.3em; }
-.section-page h2 { margin-top: 0; }
+.chapter-title {{ text-indent: 0; font-size: 1.2em; font-weight: bold; margin-top: 2em; margin-bottom: 1.5em; text-align: center; }}
+.summary-page p {{ text-indent: 0; margin-bottom: 0.8em; }}
+.section-page {{ text-align: center; margin-top: 30%; }}
+.section-page h1 {{ margin-bottom: 0.3em; }}
+.section-page h2 {{ margin-top: 0; }}
 """
 
 
@@ -335,7 +344,7 @@ def build_epub(config: BookConfig) -> None:
 
     # ── Stylesheet ────────────────────────────────────────────────────────────
     has_fonts = _load_fonts(book, config.font_dir)
-    css_content = _CSS if has_fonts else _CSS_NO_FONTS
+    css_content = _make_css(has_fonts, indent=config.paragraph_indent)
     css_item = epub.EpubItem(
         uid="stylesheet",
         file_name="styles/book.css",

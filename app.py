@@ -89,6 +89,7 @@ class BuildRequest(BaseModel):
     author: str
     identifier: str = ""
     summary_html: str = ""
+    paragraph_indent: str = "1.3rem"
     sections: list[BuildSectionEntry] = []
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1037,6 +1038,7 @@ async def run_build(job_id: str, req: BuildRequest, cache: dict, cover_image_pat
         font_dir=script_dir / "fonts",
         cover_image=cover_image_path,
         summary_html=req.summary_html,
+        paragraph_indent=req.paragraph_indent or "1.3rem",
         identifier=req.identifier or re.sub(r"\W+", "-", req.title.lower()),
         sections=sections,
     )
