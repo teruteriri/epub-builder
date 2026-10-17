@@ -289,13 +289,29 @@ def _add_cover(book: epub.EpubBook, cover_path: Path) -> epub.EpubHtml | None:
 
     book.set_cover(f"cover{suffix}", p.read_bytes(), create_page=False)
 
-    # Minimal cover page — just the image, no caption
-    cover_page = _xhtml(
-        uid="cover-page",
-        title="Cover",
-        body_content=f'<div style="text-align:center;"><img src="cover{suffix}" alt="Cover" style="max-width:100%;"/></div>',
-        css_href="../styles/book.css",
-    )
+    # Cover page — image stretched to fill the page (no letterboxing)
+    cover_page_content = f"""\
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <meta charset="utf-8"/>
+  <title>Cover</title>
+  <style type="text/css">
+    html, body {{ margin: 0; padding: 0; width: 100%; height: 100%; }}
+    .cover-wrap {{ width: 100%; height: 100%; display: block; }}
+    .cover-wrap img {{ width: 100%; height: 100%; display: block; }}
+  </style>
+</head>
+<body style="margin:0;padding:0;">
+  <div class="cover-wrap">
+    <img src="cover{suffix}" alt="Cover"/>
+  </div>
+</body>
+</html>"""
+    cover_page = epub.EpubHtml(uid="cover-page", file_name="cover-page.xhtml", title="Cover")
+    cover_page.content = cover_page_content.encode("utf-8")
+    cover_page.is_linear = True
     book.add_item(cover_page)
     return cover_page
 

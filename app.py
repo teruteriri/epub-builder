@@ -991,7 +991,7 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
 
 # ── Stage 2: Build EPUB ────────────────────────────────────────────────────────
 
-async def run_build(job_id: str, req: BuildRequest, cache: dict) -> None:
+async def run_build(job_id: str, req: BuildRequest, cache: dict, cover_image_path: Path | None = None) -> None:
     job = JOBS[job_id]
     job["status"] = "building"
 
@@ -1035,7 +1035,7 @@ async def run_build(job_id: str, req: BuildRequest, cache: dict) -> None:
         cache_file=cache_path,
         output_file=epub_path,
         font_dir=script_dir / "fonts",
-        cover_image=None,
+        cover_image=cover_image_path,
         summary_html=req.summary_html,
         identifier=req.identifier or re.sub(r"\W+", "-", req.title.lower()),
         sections=sections,
@@ -1129,6 +1129,7 @@ async def download_json(job_id: str):
 async def start_build(
     config: str = Form(...),          # BuildRequest JSON as a form string
     cache_file: UploadFile = File(...),
+    cover_image: UploadFile | None = File(default=None),
 ):
     try:
         req = BuildRequest.model_validate_json(config)
@@ -1141,6 +1142,14 @@ async def start_build(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON cache file")
 
+    # Handle optional cover image
+    cover_path: Path | None = None
+    if cover_image and cover_image.filename:
+        cover_tmp = Path(tempfile.mkdtemp())
+        suffix = Path(cover_image.filename).suffix.lower() or ".jpg"
+        cover_path = cover_tmp / f"cover{suffix}"
+        cover_path.write_bytes(await cover_image.read())
+
     job_id = str(uuid.uuid4())
     JOBS[job_id] = {
         "status": "queued",
@@ -1149,7 +1158,7 @@ async def start_build(
         "epub_path": None,
         "epub_name": None,
     }
-    asyncio.create_task(run_build(job_id, req, cache))
+    asyncio.create_task(run_build(job_id, req, cache, cover_path))
     return {"job_id": job_id}
 
 

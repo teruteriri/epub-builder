@@ -259,6 +259,62 @@
   .mode-pill { background: none; border: none; color: var(--muted); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; font-family: var(--font-ui); }
   .mode-pill:hover { color: var(--text); }
   .mode-pill.active { background: var(--ink-soft); color: var(--paper); }
+
+  /* Cover image upload */
+  .cover-upload-wrap {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .cover-drop {
+    flex: 1;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--ink);
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .cover-drop:hover, .cover-drop.dragover { border-color: var(--sage); background: rgba(122,158,135,.06); }
+  .cover-drop p { color: var(--muted); font-size: 12px; margin: 0; }
+  .cover-drop .cover-file-name { color: var(--sage); font-size: 12px; font-weight: 500; display: none; }
+  .cover-drop .cover-file-name.visible { display: block; }
+  .cover-preview-box {
+    width: 90px;
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .cover-preview-box.visible { display: flex; }
+  .cover-preview-box img {
+    width: 90px;
+    height: 120px;
+    object-fit: fill;   /* stretch — matches the EPUB cover rendering */
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+  .cover-remove-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--warn);
+    font-size: 11px;
+    font-family: var(--font-ui);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .cover-remove-btn:hover { background: rgba(201,122,90,.1); }
 </style>
 </head>
 <body>
@@ -447,6 +503,24 @@
     </div>
 
     <div class="card">
+      <div class="card-title">Cover image <span style="color:var(--text-dim);font-size:13px;font-weight:300">— optional</span></div>
+      <div class="cover-upload-wrap">
+        <div class="cover-drop" id="cover-drop"
+             onclick="document.getElementById('cover-input').click()"
+             ondragover="onCoverDragOver(event)" ondragleave="onCoverDragLeave(event)" ondrop="onCoverDrop(event)">
+          <p>Click to choose an image, or drag it here</p>
+          <p style="font-size:11px; color:var(--text-dim); margin-top:2px">JPG, PNG, WEBP &middot; Displayed stretched to fill the cover page</p>
+          <div class="cover-file-name" id="cover-file-name"></div>
+        </div>
+        <div class="cover-preview-box" id="cover-preview-box">
+          <img id="cover-preview-img" src="" alt="Cover preview">
+          <button class="cover-remove-btn" onclick="removeCoverImage()">Remove</button>
+        </div>
+      </div>
+      <input type="file" id="cover-input" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="onCoverFileChosen(this)">
+    </div>
+
+    <div class="card">
       <div class="card-title">Cache JSON</div>
       <div class="upload-zone" id="upload-zone" onclick="document.getElementById('json-upload').click()"
            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
@@ -501,6 +575,7 @@ let scrapeJobId        = null;
 let buildJobId         = null;
 let currentES          = null;
 let chosenFile         = null;
+let chosenCoverFile    = null;    // optional cover image File
 
 // ── Tab switching ──────────────────────────────────────────────────────────
 function switchTab(n) {
@@ -835,6 +910,7 @@ function startBuild() {
   const formData = new FormData();
   formData.append("config", JSON.stringify(config));
   formData.append("cache_file", chosenFile);
+  if (chosenCoverFile) formData.append("cover_image", chosenCoverFile);
 
   document.getElementById("build-btn").disabled = true;
   if (currentES) currentES.close();
@@ -932,6 +1008,45 @@ function _log(id, msg, cls) {
   line.textContent = msg;
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
+}
+
+// ── Cover image upload ─────────────────────────────────────────────────────
+function onCoverFileChosen(input) {
+  if (!input.files.length) return;
+  loadCoverFile(input.files[0]);
+}
+
+function onCoverDragOver(e)  { e.preventDefault(); document.getElementById('cover-drop').classList.add('dragover'); }
+function onCoverDragLeave(e) { document.getElementById('cover-drop').classList.remove('dragover'); }
+function onCoverDrop(e) {
+  e.preventDefault();
+  document.getElementById('cover-drop').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadCoverFile(file);
+}
+
+function loadCoverFile(file) {
+  chosenCoverFile = file;
+  const label = document.getElementById('cover-file-name');
+  label.textContent = '\u2713 ' + file.name;
+  label.classList.add('visible');
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = document.getElementById('cover-preview-img');
+    img.src = e.target.result;
+    document.getElementById('cover-preview-box').classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeCoverImage() {
+  chosenCoverFile = null;
+  document.getElementById('cover-input').value = '';
+  document.getElementById('cover-file-name').textContent = '';
+  document.getElementById('cover-file-name').classList.remove('visible');
+  document.getElementById('cover-preview-img').src = '';
+  document.getElementById('cover-preview-box').classList.remove('visible');
 }
 
 // ── Auto-detect ────────────────────────────────────────────────────────────
