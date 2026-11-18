@@ -1787,71 +1787,115 @@
     }
 
     // ── SSE progress listener ──────────────────────────────────────────────────
+    // keepAliveTimer: periodically pings /api/ping while a scrape is running
+    // so Render's free tier doesn't spin the dyno down mid-scrape.
+    let _keepAliveTimer = null;
+
+    function _startKeepAlive() {
+      if (_keepAliveTimer) return;
+      _keepAliveTimer = setInterval(() => {
+        fetch("/api/ping").catch(() => {});
+      }, 4 * 60 * 1000); // every 4 minutes (Render spins down after 15 min idle)
+    }
+
+    function _stopKeepAlive() {
+      if (_keepAliveTimer) {
+        clearInterval(_keepAliveTimer);
+        _keepAliveTimer = null;
+      }
+    }
+
     function listenProgress(jobId, stage) {
-      const es = new EventSource(`/api/progress/${jobId}`);
-      currentES = es;
+      _startKeepAlive();
+
       let lastTitle = "";
       let seenErrors = [];   // track errors already logged so we only show new ones
+      let reconnectDelay = 2000;
+      let done = false;
 
-      es.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        const { status, progress, errors, json_name, epub_name } = data;
+      function connect() {
+        if (done) return;
+        const es = new EventSource(`/api/progress/${jobId}`);
+        currentES = es;
 
-        const statusMap = { queued: "Queued…", scraping: "Scraping chapters…", building: "Assembling EPUB…", done: "Done.", error: "Error" };
+        es.onmessage = (e) => {
+          // Skip SSE comment pings (": ping") — they fire onmessage only if
+          // they have a data: field, so pure comments are safely ignored.
+          if (!e.data) return;
 
-        if (stage === "scrape") {
-          document.getElementById("sp-status").textContent = statusMap[status] || status;
-          if (status === "scraping" && progress.total > 0) {
-            const { current, total, title } = progress;
-            document.getElementById("sp-bar").style.width = Math.round(current / total * 100) + "%";
-            document.getElementById("sp-fraction").textContent = `${current} / ${total}`;
-            if (title && title !== lastTitle) {
-              lastTitle = title;
-              document.getElementById("sp-chapter").textContent = title;
-              // mark chapter as failed only if its exact title appears in errors[]
-              const failed = errors.some(e => e === title);
-              slog(`${failed ? "✕" : "✓"}  ${title}`, failed ? "log-err" : "log-ok");
+          reconnectDelay = 2000; // reset backoff on a successful message
+
+          const data = JSON.parse(e.data);
+          const { status, progress, errors, json_name, epub_name } = data;
+
+          const statusMap = { queued: "Queued…", scraping: "Scraping chapters…", building: "Assembling EPUB…", done: "Done.", error: "Error" };
+
+          if (stage === "scrape") {
+            document.getElementById("sp-status").textContent = statusMap[status] || status;
+            if (status === "scraping" && progress.total > 0) {
+              const { current, total, title } = progress;
+              document.getElementById("sp-bar").style.width = Math.round(current / total * 100) + "%";
+              document.getElementById("sp-fraction").textContent = `${current} / ${total}`;
+              if (title && title !== lastTitle) {
+                lastTitle = title;
+                document.getElementById("sp-chapter").textContent = title;
+                // mark chapter as failed only if its exact title appears in errors[]
+                const failed = errors.some(e => e === title);
+                slog(`${failed ? "✕" : "✓"}  ${title}`, failed ? "log-err" : "log-ok");
+              }
+            }
+            // Log any new chain-stop / warning messages that arrived since last tick
+            if (errors) {
+              errors.forEach(msg => {
+                if (!seenErrors.includes(msg)) {
+                  seenErrors.push(msg);
+                  // Only surface messages that look like chain diagnostics (start with "[")
+                  if (msg.startsWith("[")) {
+                    slog(msg, "log-err");
+                  }
+                }
+              });
+            }
+            if (status === "done") {
+              done = true;
+              document.getElementById("sp-bar").style.width = "100%";
+              document.getElementById("sp-chapter").textContent = "";
+              document.getElementById("json-name").textContent = json_name;
+              document.getElementById("scrape-done").classList.add("visible");
+              document.getElementById("scrape-btn").disabled = false;
+              _stopKeepAlive();
+              es.close();
+            }
+          } else {
+            document.getElementById("bp-status").textContent = statusMap[status] || status;
+            if (status === "building") blog("Building EPUB…", "log-info");
+            if (status === "done") {
+              done = true;
+              blog("EPUB ready.", "log-ok");
+              document.getElementById("epub-name").textContent = epub_name;
+              document.getElementById("build-done").classList.add("visible");
+              document.getElementById("build-btn").disabled = false;
+              _stopKeepAlive();
+              es.close();
             }
           }
-          // Log any new chain-stop / warning messages that arrived since last tick
-          if (errors) {
-            errors.forEach(msg => {
-              if (!seenErrors.includes(msg)) {
-                seenErrors.push(msg);
-                // Only surface messages that look like chain diagnostics (start with "[")
-                if (msg.startsWith("[")) {
-                  slog(msg, "log-err");
-                }
-              }
-            });
-          }
-          if (status === "done") {
-            document.getElementById("sp-bar").style.width = "100%";
-            document.getElementById("sp-chapter").textContent = "";
-            document.getElementById("json-name").textContent = json_name;
-            document.getElementById("scrape-done").classList.add("visible");
-            document.getElementById("scrape-btn").disabled = false;
-            es.close();
-          }
-        } else {
-          document.getElementById("bp-status").textContent = statusMap[status] || status;
-          if (status === "building") blog("Building EPUB…", "log-info");
-          if (status === "done") {
-            blog("EPUB ready.", "log-ok");
-            document.getElementById("epub-name").textContent = epub_name;
-            document.getElementById("build-done").classList.add("visible");
-            document.getElementById("build-btn").disabled = false;
-            es.close();
-          }
-        }
-      };
+        };
 
-      es.onerror = () => {
-        const fn = stage === "scrape" ? slog : blog;
-        fn("Connection lost. Reload to check status.", "log-err");
-        document.getElementById(stage === "scrape" ? "scrape-btn" : "build-btn").disabled = false;
-        es.close();
-      };
+        es.onerror = () => {
+          es.close();
+          if (done) return;
+
+          // Auto-reconnect with exponential backoff (cap at 30 s)
+          const fn = stage === "scrape" ? slog : blog;
+          fn(`Connection dropped — reconnecting in ${Math.round(reconnectDelay / 1000)} s…`, "log-info");
+          setTimeout(() => {
+            if (!done) connect();
+          }, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        };
+      }
+
+      connect();
     }
 
     function slog(msg, cls = "") { _log("sp-log", msg, cls); }

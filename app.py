@@ -1250,6 +1250,9 @@ async def progress_stream(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     async def event_stream() -> AsyncGenerator[str, None]:
+        # Send the retry hint once so the browser auto-reconnects quickly
+        yield "retry: 3000\n\n"
+        ping_counter = 0
         while True:
             job = JOBS.get(job_id, {})
             data = {
@@ -1265,7 +1268,28 @@ async def progress_stream(job_id: str):
                 break
             await asyncio.sleep(0.5)
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+            # Send an SSE comment ping every ~15 s to keep the connection
+            # alive through Render's / any reverse-proxy's idle timeout.
+            ping_counter += 1
+            if ping_counter >= 30:   # 30 × 0.5 s = 15 s
+                yield ": ping\n\n"
+                ping_counter = 0
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            # Disable buffering so pings reach the browser immediately.
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+# Keep-alive endpoint — the browser polls this to prevent Render spin-down
+@app.get("/api/ping")
+async def ping():
+    return {"ok": True}
 
 
 # Stage 1 — download the cache JSON
