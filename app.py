@@ -14,6 +14,7 @@ Run:
 """
 
 import asyncio
+import hashlib
 import html as html_module
 import json
 import logging
@@ -49,6 +50,76 @@ SCRAPER = cloudscraper.create_scraper(
 # job_id → {status, progress, errors, cache, json_path, epub_path, epub_name}
 JOBS: dict[str, dict] = {}
 
+# ── Progress persistence ───────────────────────────────────────────────────────
+
+# Directory where in-progress scrape sessions are saved so they survive restarts.
+SESSIONS_DIR = Path(tempfile.gettempdir()) / "epub_builder_sessions"
+SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _session_id(req: "ScrapeRequest") -> str:
+    """
+    Derive a stable session ID from the scrape request's identifying fields.
+    Two requests for the same book/URL will share the same session, allowing
+    resume after an interruption.
+    """
+    if req.mode == "chain" or (req.start_url and req.count > 0):
+        key = f"chain|{req.title}|{req.start_url}|{req.count}|{req.content_selector}"
+    else:
+        urls = "|".join(ch.url for ch in (req.chapters or []))
+        key = f"manual|{req.title}|{req.content_selector}|{urls}"
+    return hashlib.sha1(key.encode()).hexdigest()[:16]
+
+
+def _session_path(session_id: str) -> Path:
+    return SESSIONS_DIR / f"{session_id}.json"
+
+
+def _load_session(session_id: str) -> dict | None:
+    """Load a saved scrape session from disk, or return None."""
+    p = _session_path(session_id)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
+def _save_session(session_id: str, data: dict) -> None:
+    """Persist the current scrape session state to disk."""
+    _session_path(session_id).write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _delete_session(session_id: str) -> None:
+    """Remove a completed or cancelled session file."""
+    p = _session_path(session_id)
+    if p.exists():
+        p.unlink(missing_ok=True)
+
+
+def _list_sessions() -> list[dict]:
+    """Return summary info for all saved (interrupted) sessions."""
+    sessions = []
+    for p in sorted(SESSIONS_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            sessions.append({
+                "session_id": p.stem,
+                "title": data.get("title", ""),
+                "mode": data.get("mode", ""),
+                "saved_at": data.get("saved_at", ""),
+                "chapters_done": len(data.get("cache", {})),
+                "total": data.get("total", 0),
+                "next_url": data.get("next_url", ""),
+                "next_index": data.get("next_index", 0),
+            })
+        except Exception:
+            pass
+    return sessions
+
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class ChapterEntry(BaseModel):
@@ -83,6 +154,8 @@ class ScrapeRequest(BaseModel):
     chapters: list[ChapterEntry] = []
     # Backward compatibility with old multi-section scrape payloads
     sections: list[SectionEntry] = []
+    # Resume support — if provided, the scraper will continue from saved state
+    resume_session_id: str = ""
 
 class BuildRequest(BaseModel):
     title: str
@@ -898,20 +971,38 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
     job = JOBS[job_id]
     job["status"] = "scraping"
     loop = asyncio.get_event_loop()
-    cache: dict[str, dict] = {}
 
     is_chain = (req.mode == "chain") or (bool(req.start_url) and req.count > 0)
+
+    # ── Determine session ID and load any saved progress ──────────────────────
+    session_id = req.resume_session_id or _session_id(req)
+    job["session_id"] = session_id
+    saved = _load_session(session_id) if session_id else None
+
+    # Restore cache from saved session, or start fresh
+    cache: dict[str, dict] = {}
+    if saved:
+        cache = saved.get("cache", {})
+        log.info("Resuming session %s — %d chapters already done", session_id, len(cache))
 
     if is_chain and req.start_url:
         total = max(1, req.count)
         prefix = (req.chapter_prefix or "Chapter").strip()
-        current_url = req.start_url
         visited: set[str] = set()
         start_domain = urlparse(req.start_url).netloc
 
-        job["progress"] = {"current": 0, "total": total, "title": "Starting chain scrape…"}
+        # ── Resume state ──────────────────────────────────────────────────────
+        resume_index = 0
+        current_url = req.start_url
+        if saved and saved.get("mode") == "chain":
+            resume_index = saved.get("next_index", 0)
+            current_url = saved.get("next_url", req.start_url) or req.start_url
+            # Rebuild visited set from already-scraped chapters
+            visited = set(saved.get("visited_urls", []))
 
-        for i in range(total):
+        job["progress"] = {"current": resume_index, "total": total, "title": "Resuming…" if resume_index else "Starting chain scrape…"}
+
+        for i in range(resume_index, total):
             title = f"{prefix} {i + 1}"
             job["progress"] = {
                 "current": i + 1,
@@ -923,11 +1014,40 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
             if not html:
                 job["errors"].append(f"[Failed to fetch] {title} ({current_url})")
                 cache[f"c{i}"] = {"title": title, "body": "<p><em>[Failed to fetch]</em></p>"}
+                # Save progress before stopping so the user can resume
+                _save_session(session_id, {
+                    "title": req.title,
+                    "mode": "chain",
+                    "total": total,
+                    "next_index": i,          # retry from the failed chapter
+                    "next_url": current_url,
+                    "visited_urls": list(visited),
+                    "cache": cache,
+                    "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "request": req.model_dump(),
+                })
                 break
 
             visited.add(current_url)
             body = extract_body(html, req.content_selector)
             cache[f"c{i}"] = {"title": title, "body": body}
+
+            # ── Persist progress after each successful chapter ─────────────
+            next_url_for_save = None
+            if i < total - 1:
+                if req.next_url_selector:
+                    next_url_for_save = extract_next_url(html, req.next_url_selector, current_url)
+            _save_session(session_id, {
+                "title": req.title,
+                "mode": "chain",
+                "total": total,
+                "next_index": i + 1,
+                "next_url": next_url_for_save,
+                "visited_urls": list(visited),
+                "cache": cache,
+                "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "request": req.model_dump(),
+            })
 
             # Follow next link if not at the end
             if i < total - 1:
@@ -938,6 +1058,18 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
                 next_url = extract_next_url(html, req.next_url_selector, current_url)
                 if not next_url:
                     job["errors"].append(f"[No next link found after] {title}")
+                    # Save with current URL so user can manually resume
+                    _save_session(session_id, {
+                        "title": req.title,
+                        "mode": "chain",
+                        "total": total,
+                        "next_index": i + 1,
+                        "next_url": None,
+                        "visited_urls": list(visited),
+                        "cache": cache,
+                        "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "request": req.model_dump(),
+                    })
                     break
                 if _is_index_like(next_url):
                     job["errors"].append(f"[Chain stopped — next link points to index page after] {title}")
@@ -963,9 +1095,16 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
                 chapters.extend(s.chapters)
 
         total = len(chapters)
-        job["progress"] = {"current": 0, "total": total, "title": ""}
 
-        for i, ch in enumerate(chapters):
+        # ── Resume state ──────────────────────────────────────────────────────
+        resume_index = 0
+        if saved and saved.get("mode") == "manual":
+            resume_index = saved.get("next_index", 0)
+
+        job["progress"] = {"current": resume_index, "total": total, "title": ""}
+
+        for i in range(resume_index, total):
+            ch = chapters[i]
             title = ch.title or f"Chapter {i + 1}"
             job["progress"] = {"current": i + 1, "total": total, "title": title}
 
@@ -976,6 +1115,17 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
             else:
                 cache[f"c{i}"] = {"title": title, "body": "<p><em>[Failed to fetch]</em></p>"}
                 job["errors"].append(title)
+
+            # ── Persist progress after each chapter ────────────────────────
+            _save_session(session_id, {
+                "title": req.title,
+                "mode": "manual",
+                "total": total,
+                "next_index": i + 1,
+                "cache": cache,
+                "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "request": req.model_dump(),
+            })
 
             await asyncio.sleep(req.delay_seconds)
 
@@ -988,6 +1138,9 @@ async def run_scrape(job_id: str, req: ScrapeRequest) -> None:
     job["status"] = "done"
     job["json_path"] = str(json_path)
     job["json_name"] = json_path.name
+
+    # Clean up session file on successful completion
+    _delete_session(session_id)
 
 
 # ── Stage 2: Build EPUB ────────────────────────────────────────────────────────
@@ -1084,6 +1237,7 @@ async def start_scrape(req: ScrapeRequest):
         "errors": [],
         "json_path": None,
         "json_name": None,
+        "session_id": None,
     }
     asyncio.create_task(run_scrape(job_id, req))
     return {"job_id": job_id}
@@ -1099,11 +1253,12 @@ async def progress_stream(job_id: str):
         while True:
             job = JOBS.get(job_id, {})
             data = {
-                "status":    job.get("status"),
-                "progress":  job.get("progress", {}),
-                "errors":    job.get("errors", []),
-                "json_name": job.get("json_name"),
-                "epub_name": job.get("epub_name"),
+                "status":     job.get("status"),
+                "progress":   job.get("progress", {}),
+                "errors":     job.get("errors", []),
+                "json_name":  job.get("json_name"),
+                "epub_name":  job.get("epub_name"),
+                "session_id": job.get("session_id"),
             }
             yield f"data: {json.dumps(data)}\n\n"
             if job.get("status") in ("done", "error"):
@@ -1162,6 +1317,70 @@ async def start_build(
     }
     asyncio.create_task(run_build(job_id, req, cache, cover_path))
     return {"job_id": job_id}
+
+
+# ── Session / resume endpoints ────────────────────────────────────────────────
+
+class SessionCheckRequest(BaseModel):
+    title: str
+    mode: str = "chain"
+    start_url: str = ""
+    count: int = 0
+    content_selector: str = "div.entry-content"
+    chapters: list[ChapterEntry] = []
+    sections: list[SectionEntry] = []
+    chapter_prefix: str = "Chapter"
+    next_url_selector: str = ""
+    delay_seconds: float = 1.5
+
+
+@app.post("/api/sessions/check")
+async def check_session(req: SessionCheckRequest):
+    """
+    Given a scrape configuration, return any existing saved progress for it.
+    The frontend calls this before starting a scrape so it can offer a resume.
+    """
+    scrape_req = ScrapeRequest(**req.model_dump(), resume_session_id="")
+    session_id = _session_id(scrape_req)
+    saved = _load_session(session_id)
+    if not saved:
+        return {"has_session": False}
+    return {
+        "has_session": True,
+        "session_id": session_id,
+        "chapters_done": len(saved.get("cache", {})),
+        "total": saved.get("total", 0),
+        "saved_at": saved.get("saved_at", ""),
+        "next_index": saved.get("next_index", 0),
+    }
+
+
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all saved (interrupted) scrape sessions."""
+    return {"sessions": _list_sessions()}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Discard a saved session (start fresh)."""
+    _delete_session(session_id)
+    return {"deleted": True}
+
+
+@app.get("/api/sessions/{session_id}/download")
+async def download_session_cache(session_id: str):
+    """Download the partial cache JSON from a saved session."""
+    saved = _load_session(session_id)
+    if not saved:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cache = saved.get("cache", {})
+    title = saved.get("title", "novel")
+    safe_title = re.sub(r"[^\w\s-]", "", title).strip() or "novel"
+    tmp_dir = Path(tempfile.mkdtemp())
+    json_path = tmp_dir / f"{safe_title}_partial.json"
+    json_path.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+    return FileResponse(path=str(json_path), filename=json_path.name, media_type="application/json")
 
 
 # Stage 2 — download the finished EPUB

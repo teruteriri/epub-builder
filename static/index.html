@@ -566,6 +566,103 @@
       color: var(--paper);
     }
 
+    /* Resume banner */
+    .resume-banner {
+      display: none;
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      background: rgba(201, 170, 90, .10);
+      border: 1px solid rgba(201, 170, 90, .35);
+      border-radius: var(--radius);
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .resume-banner.visible {
+      display: flex;
+    }
+
+    .resume-banner-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    .resume-banner-body {
+      flex: 1;
+    }
+
+    .resume-banner-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #c9aa5a;
+      margin-bottom: 4px;
+    }
+
+    .resume-banner-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .resume-banner-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-resume {
+      background: rgba(201, 170, 90, .2);
+      border: 1px solid rgba(201, 170, 90, .45);
+      color: #c9aa5a;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: var(--font-ui);
+      transition: background 0.15s;
+    }
+
+    .btn-resume:hover {
+      background: rgba(201, 170, 90, .3);
+    }
+
+    .btn-discard {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: var(--font-ui);
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .btn-discard:hover {
+      color: var(--warn);
+      border-color: rgba(201, 122, 90, .4);
+    }
+
+    .btn-download-partial {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: var(--font-ui);
+      transition: color 0.15s;
+    }
+
+    .btn-download-partial:hover {
+      color: var(--text);
+    }
+
     /* Stage 2 upload zone */
     .upload-zone {
       border: 2px dashed var(--border);
@@ -1097,6 +1194,20 @@
         <button class="btn btn-primary" id="scrape-btn" onclick="startScrape()">Scrape chapters</button>
       </div>
 
+      <!-- Resume banner (shown when interrupted progress is detected) -->
+      <div class="resume-banner" id="resume-banner">
+        <div class="resume-banner-icon">⏸</div>
+        <div class="resume-banner-body">
+          <div class="resume-banner-title">Interrupted session found</div>
+          <div class="resume-banner-desc" id="resume-banner-desc"></div>
+          <div class="resume-banner-actions">
+            <button class="btn-resume" onclick="resumeScrape()">↩ Resume from where I left off</button>
+            <button class="btn-download-partial" onclick="downloadPartialCache()">↓ Download partial cache</button>
+            <button class="btn-discard" onclick="discardSession()">✕ Start fresh</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Scrape progress -->
       <div class="progress-panel" id="scrape-progress">
         <div class="progress-status" id="sp-status">Preparing…</div>
@@ -1221,6 +1332,10 @@
     let currentES = null;
     let chosenFile = null;
     let chosenCoverFile = null;    // optional cover image File
+
+    // ── Resume state ───────────────────────────────────────────────────────────
+    let pendingSessionId = null;   // session_id from a detected interrupted session
+    let pendingSessionInfo = null; // full check response
 
     // ── Tab switching ──────────────────────────────────────────────────────────
     function switchTab(n) {
@@ -1513,6 +1628,56 @@
       document.getElementById("sp-status").textContent = "Starting…";
       document.getElementById("sp-chapter").textContent = "";
 
+      // Check for an existing saved session before starting fresh
+      checkForSession(payload).then(sessionInfo => {
+        if (sessionInfo && sessionInfo.has_session && sessionInfo.chapters_done > 0) {
+          // Show resume banner instead of immediately starting
+          pendingSessionId = sessionInfo.session_id;
+          pendingSessionInfo = sessionInfo;
+          _pendingScrapePayload = payload;
+          showResumeBanner(sessionInfo);
+          document.getElementById("scrape-btn").disabled = false;
+          prog.classList.remove("visible");
+        } else {
+          // No saved session — start fresh (explicitly discard any stale session)
+          pendingSessionId = null;
+          pendingSessionInfo = null;
+          _pendingScrapePayload = null;
+          _doStartScrape(payload);
+        }
+      });
+    }
+
+    // Internal: check server for saved session matching this payload
+    function checkForSession(payload) {
+      return fetch("/api/sessions/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(r => r.json())
+        .catch(() => null);
+    }
+
+    // Internal: actually post to /api/scrape (optionally with a resume_session_id)
+    let _pendingScrapePayload = null;
+
+    function _doStartScrape(payload, resumeSessionId) {
+      if (resumeSessionId) payload = { ...payload, resume_session_id: resumeSessionId };
+
+      document.getElementById("scrape-btn").disabled = true;
+      if (currentES) currentES.close();
+
+      const prog = document.getElementById("scrape-progress");
+      prog.classList.add("visible");
+      document.getElementById("scrape-done").classList.remove("visible");
+      document.getElementById("sp-log").innerHTML = "";
+      document.getElementById("sp-bar").style.width = "0%";
+      document.getElementById("sp-fraction").textContent = "";
+      document.getElementById("sp-status").textContent = resumeSessionId ? "Resuming…" : "Starting…";
+      document.getElementById("sp-chapter").textContent = "";
+      hideResumeBanner();
+
       fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1521,6 +1686,50 @@
         .then(r => r.json())
         .then(data => { scrapeJobId = data.job_id; listenProgress(data.job_id, "scrape"); })
         .catch(err => { slog(`Error: ${err}`, "log-err"); document.getElementById("scrape-btn").disabled = false; });
+    }
+
+    // ── Resume banner helpers ─────────────────────────────────────────────────
+    function showResumeBanner(info) {
+      const banner = document.getElementById("resume-banner");
+      const desc = document.getElementById("resume-banner-desc");
+      const done = info.chapters_done || 0;
+      const total = info.total || "?";
+      const savedAt = info.saved_at ? ` · Saved ${info.saved_at.replace("T", " at ")}` : "";
+      desc.textContent =
+        `${done} of ${total} chapters were scraped before the interruption.${savedAt} ` +
+        `You can resume from Chapter ${done + 1}, download what was saved so far, or start over.`;
+      banner.classList.add("visible");
+    }
+
+    function hideResumeBanner() {
+      document.getElementById("resume-banner").classList.remove("visible");
+    }
+
+    function resumeScrape() {
+      if (!pendingSessionId || !_pendingScrapePayload) return;
+      _doStartScrape(_pendingScrapePayload, pendingSessionId);
+      pendingSessionId = null;
+      pendingSessionInfo = null;
+      _pendingScrapePayload = null;
+    }
+
+    function discardSession() {
+      if (pendingSessionId) {
+        fetch(`/api/sessions/${pendingSessionId}`, { method: "DELETE" }).catch(() => {});
+      }
+      hideResumeBanner();
+      if (_pendingScrapePayload) {
+        _doStartScrape(_pendingScrapePayload);
+      }
+      pendingSessionId = null;
+      pendingSessionInfo = null;
+      _pendingScrapePayload = null;
+    }
+
+    function downloadPartialCache() {
+      if (pendingSessionId) {
+        window.location.href = `/api/sessions/${pendingSessionId}/download`;
+      }
     }
 
     function downloadJson() {
